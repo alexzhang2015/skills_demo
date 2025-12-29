@@ -1,0 +1,787 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>总部运营Agent - 四层架构演示</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        dark: {
+                            bg: '#0d1117',
+                            card: '#161b22',
+                            border: '#30363d',
+                            hover: '#21262d'
+                        }
+                    }
+                }
+            }
+        }
+        if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+            document.documentElement.classList.add('dark');
+        }
+    </script>
+    <style>
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #4b5563; border-radius: 3px; }
+        .dark ::-webkit-scrollbar-thumb { background: #30363d; }
+        .font-mono { font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace; }
+
+        .system-badge { transition: all 0.3s ease; }
+        .system-badge.active {
+            animation: pulse 0.8s infinite;
+            transform: scale(1.1);
+            box-shadow: 0 0 12px currentColor;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+        @keyframes flow {
+            0% { transform: translateX(0); opacity: 0.3; }
+            50% { opacity: 1; }
+            100% { transform: translateX(8px); opacity: 0.3; }
+        }
+        .flow-indicator { animation: flow 1s infinite; }
+        .agent-card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-slideIn { animation: slideIn 0.3s ease-out; }
+        @keyframes countUp {
+            from { opacity: 0; transform: scale(0.5); }
+            to { opacity: 1; transform: scale(1); }
+        }
+        .animate-countUp { animation: countUp 0.5s ease-out; }
+
+        /* Layer highlight */
+        .layer-active {
+            ring: 2px;
+            ring-color: currentColor;
+            box-shadow: 0 0 16px rgba(168, 85, 247, 0.4);
+        }
+
+        /* Workflow Timeline */
+        @keyframes progressBar {
+            from { width: 0%; }
+            to { width: 100%; }
+        }
+        .animate-progress { animation: progressBar 0.5s ease-out forwards; }
+
+        /* Step card hover */
+        .step-card {
+            transition: all 0.2s ease;
+        }
+        .step-card:hover {
+            transform: translateX(4px);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        /* System operation badge pulse */
+        @keyframes opPulse {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.4); }
+            50% { box-shadow: 0 0 0 4px rgba(34, 197, 94, 0); }
+        }
+        .op-complete { animation: opPulse 0.5s ease-out; }
+
+        /* Log entry animation */
+        @keyframes logSlide {
+            from { opacity: 0; transform: translateX(-10px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+        .log-entry { animation: logSlide 0.2s ease-out; }
+    </style>
+</head>
+<body class="h-full bg-gray-50 dark:bg-dark-bg text-gray-900 dark:text-gray-100">
+    <div class="h-full flex flex-col max-w-[1920px] mx-auto p-3">
+        <!-- Header with Natural Language Input -->
+        <header class="mb-3">
+            <div class="flex items-center justify-between mb-2">
+                <div>
+                    <h1 class="text-xl font-bold">
+                        <span class="bg-gradient-to-r from-purple-500 via-pink-500 to-orange-500 bg-clip-text text-transparent">
+                            总部运营Agent
+                        </span>
+                        <button id="techPptBtn" class="ml-2 px-2 py-0.5 text-xs font-normal text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-900/30 rounded-full hover:bg-purple-100 dark:hover:bg-purple-900/50 transition-colors cursor-pointer border border-purple-200 dark:border-purple-800">
+                            四层架构 v2.0 →
+                        </button>
+                    </h1>
+                    <p class="text-xs text-gray-500 dark:text-gray-400">Master Agent → 子场景Agent → Workflow编排 → Skills执行</p>
+                </div>
+                <!-- Efficiency Metrics -->
+                <div id="efficiencyMetrics" class="flex gap-4 text-center items-center">
+                    <!-- Business Report Entry -->
+                    <button id="businessImpactBtn" class="px-4 py-2 rounded-lg bg-gradient-to-r from-orange-500 to-pink-500 hover:from-orange-600 hover:to-pink-600 text-white text-sm font-medium transition-all flex items-center gap-2 shadow-lg hover:shadow-xl">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                        </svg>
+                        业务报表
+                    </button>
+                    <div class="px-3 py-1 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800">
+                        <div class="text-lg font-bold text-green-600 dark:text-green-400" id="metricTimeSaved">0</div>
+                        <div class="text-[10px] text-gray-500 dark:text-gray-400">节省工时(h)</div>
+                    </div>
+                    <div class="px-3 py-1 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
+                        <div class="text-lg font-bold text-blue-600 dark:text-blue-400" id="metricAgents">0</div>
+                        <div class="text-[10px] text-gray-500 dark:text-gray-400">Agent调度</div>
+                    </div>
+                    <div class="px-3 py-1 rounded-lg bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800">
+                        <div class="text-lg font-bold text-purple-600 dark:text-purple-400" id="metricWorkflows">0</div>
+                        <div class="text-[10px] text-gray-500 dark:text-gray-400">工作流执行</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Natural Language Agent Input -->
+            <div class="bg-gradient-to-r from-purple-500 to-pink-500 p-0.5 rounded-xl">
+                <div class="bg-white dark:bg-dark-card rounded-xl p-3">
+                    <div class="flex items-center gap-2 mb-2">
+                        <div class="w-6 h-6 rounded-full bg-gradient-to-r from-purple-500 to-pink-500 flex items-center justify-center">
+                            <svg class="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"></path>
+                            </svg>
+                        </div>
+                        <span class="text-sm font-medium">告诉Master Agent你想做什么（自然语言）</span>
+                        <span class="text-xs text-gray-400 ml-auto">Agent会自动识别意图、匹配子Agent、编排工作流</span>
+                    </div>
+                    <div class="flex gap-2">
+                        <input type="text" id="naturalLanguageInput"
+                            placeholder="例如：帮我上线一个新品川香麻辣鸡腿堡，定价25元 / 华东区汉堡类产品涨价8% / 配置一个满30减5的新年活动..."
+                            class="flex-1 px-4 py-2.5 bg-gray-50 dark:bg-dark-bg border border-gray-200 dark:border-dark-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                        <button id="agentExecuteBtn" class="px-6 py-2.5 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white rounded-lg text-sm font-medium transition-all flex items-center gap-2">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                            </svg>
+                            Agent执行
+                        </button>
+                    </div>
+                    <!-- Quick Examples -->
+                    <div class="flex flex-wrap gap-2 mt-2">
+                        <span class="text-xs text-gray-400">快速示例:</span>
+                        <button class="quick-example px-2 py-0.5 text-xs rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 hover:bg-blue-200 transition-colors" data-text="下周一川香系列产品全国上市，定价比竞品低2元">新品上市</button>
+                        <button class="quick-example px-2 py-0.5 text-xs rounded-full bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 hover:bg-green-200 transition-colors" data-text="华东区全线汉堡产品涨价5%，下周一生效">区域调价</button>
+                        <button class="quick-example px-2 py-0.5 text-xs rounded-full bg-pink-100 dark:bg-pink-900/30 text-pink-700 dark:text-pink-400 hover:bg-pink-200 transition-colors" data-text="配置春节满100减20活动，1月20日-2月10日全国门店">营销活动</button>
+                        <button class="quick-example px-2 py-0.5 text-xs rounded-full bg-cyan-100 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-400 hover:bg-cyan-200 transition-colors" data-text="生成华东区上周销售周报，对比环比数据">生成报告</button>
+                        <button class="quick-example px-2 py-0.5 text-xs rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 hover:bg-amber-200 transition-colors" data-text="临期产品7折清仓，华北区3个SKU，为期一周">库存清仓</button>
+                    </div>
+                    <!-- 执行预览提示 -->
+                    <div id="previewHint" class="hidden mt-2 p-2.5 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                        <div class="flex items-center justify-between mb-2">
+                            <div class="flex items-center gap-2">
+                                <svg class="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                                </svg>
+                                <span class="text-xs font-medium text-blue-700 dark:text-blue-400">执行影响预览</span>
+                            </div>
+                            <span id="previewComplexity" class="px-1.5 py-0.5 text-[10px] rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-600"></span>
+                        </div>
+                        <div class="grid grid-cols-4 gap-2 text-center">
+                            <div class="p-1.5 bg-white dark:bg-dark-card rounded border border-blue-100 dark:border-blue-900">
+                                <div class="text-sm font-bold text-blue-600 dark:text-blue-400" id="previewStores">-</div>
+                                <div class="text-[10px] text-gray-500">影响门店</div>
+                            </div>
+                            <div class="p-1.5 bg-white dark:bg-dark-card rounded border border-blue-100 dark:border-blue-900">
+                                <div class="text-sm font-bold text-green-600 dark:text-green-400" id="previewSkus">-</div>
+                                <div class="text-[10px] text-gray-500">涉及SKU</div>
+                            </div>
+                            <div class="p-1.5 bg-white dark:bg-dark-card rounded border border-blue-100 dark:border-blue-900">
+                                <div class="text-sm font-bold text-purple-600 dark:text-purple-400" id="previewSystems">-</div>
+                                <div class="text-[10px] text-gray-500">系统调用</div>
+                            </div>
+                            <div class="p-1.5 bg-white dark:bg-dark-card rounded border border-blue-100 dark:border-blue-900">
+                                <div class="text-sm font-bold text-amber-600 dark:text-amber-400" id="previewDuration">-</div>
+                                <div class="text-[10px] text-gray-500">预计耗时</div>
+                            </div>
+                        </div>
+                        <div id="previewDetails" class="mt-2 text-[10px] text-gray-500 space-y-1">
+                            <!-- 详细信息将由 JS 填充 -->
+                        </div>
+                    </div>
+                    <!-- 实时预览提示区域 -->
+                    <div id="quickPreviewHint" class="hidden mt-2 px-3 py-1.5 bg-gray-50 dark:bg-dark-hover rounded-lg border border-gray-200 dark:border-dark-border">
+                        <div class="flex items-center gap-2 text-xs text-gray-500">
+                            <svg class="w-3.5 h-3.5 animate-spin text-purple-500" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                            </svg>
+                            <span id="quickPreviewText">分析中...</span>
+                        </div>
+                    </div>
+                    <!-- 场景模板 -->
+                    <div class="mt-3 pt-3 border-t border-gray-200 dark:border-dark-border">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-xs text-gray-500 font-medium">场景模板</span>
+                            <button id="toggleTemplates" class="text-xs text-purple-500 hover:text-purple-600 flex items-center gap-1">
+                                <span id="toggleTemplatesText">展开</span>
+                                <svg id="toggleTemplatesIcon" class="w-3 h-3 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                                </svg>
+                            </button>
+                        </div>
+                        <div id="templatesContainer" class="hidden grid grid-cols-5 gap-2">
+                            <button class="scenario-template p-2 text-left rounded-lg border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors"
+                                data-text="夏季限定芒果系列产品，6月1日全国上市，定价28元，华东华南区域优先">
+                                <div class="text-xs font-medium text-blue-700 dark:text-blue-400 mb-0.5">季节性新品</div>
+                                <div class="text-[10px] text-gray-500 line-clamp-2">夏季限定芒果系列...</div>
+                            </button>
+                            <button class="scenario-template p-2 text-left rounded-lg border border-pink-200 dark:border-pink-800 bg-pink-50 dark:bg-pink-900/20 hover:bg-pink-100 dark:hover:bg-pink-900/30 transition-colors"
+                                data-text="配置春节满100减20活动，1月20日至2月10日，全国门店参与，会员双倍积分">
+                                <div class="text-xs font-medium text-pink-700 dark:text-pink-400 mb-0.5">节日促销</div>
+                                <div class="text-[10px] text-gray-500 line-clamp-2">春节满100减20...</div>
+                            </button>
+                            <button class="scenario-template p-2 text-left rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 hover:bg-amber-100 dark:hover:bg-amber-900/30 transition-colors"
+                                data-text="临期产品7折清仓，涉及华北区3个SKU，为期一周，明天生效">
+                                <div class="text-xs font-medium text-amber-700 dark:text-amber-400 mb-0.5">库存清仓</div>
+                                <div class="text-[10px] text-gray-500 line-clamp-2">临期产品7折清仓...</div>
+                            </button>
+                            <button class="scenario-template p-2 text-left rounded-lg border border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-900/20 hover:bg-green-100 dark:hover:bg-green-900/30 transition-colors"
+                                data-text="华东区全线产品涨价5%，下周一生效，比竞品低2元定价策略">
+                                <div class="text-xs font-medium text-green-700 dark:text-green-400 mb-0.5">区域调价</div>
+                                <div class="text-[10px] text-gray-500 line-clamp-2">华东区涨价5%...</div>
+                            </button>
+                            <button class="scenario-template p-2 text-left rounded-lg border border-cyan-200 dark:border-cyan-800 bg-cyan-50 dark:bg-cyan-900/20 hover:bg-cyan-100 dark:hover:bg-cyan-900/30 transition-colors"
+                                data-text="配置上海新天地店开业促销，全场8折，持续3天，送开业礼品">
+                                <div class="text-xs font-medium text-cyan-700 dark:text-cyan-400 mb-0.5">新店开业</div>
+                                <div class="text-[10px] text-gray-500 line-clamp-2">新天地店开业8折...</div>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- 4-Layer Architecture Overview -->
+        <div class="mb-3 grid grid-cols-4 gap-2 relative">
+            <!-- Flow Arrows -->
+            <div class="absolute left-[25%] top-1/2 -translate-y-1/2 -translate-x-1/2 z-10 hidden" id="flowArrow1">
+                <div class="flow-indicator text-purple-500">
+                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clip-rule="evenodd"></path></svg>
+                </div>
+            </div>
+            <div class="absolute left-[50%] top-1/2 -translate-y-1/2 -translate-x-1/2 z-10 hidden" id="flowArrow2">
+                <div class="flow-indicator text-blue-500">
+                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clip-rule="evenodd"></path></svg>
+                </div>
+            </div>
+            <div class="absolute left-[75%] top-1/2 -translate-y-1/2 -translate-x-1/2 z-10 hidden" id="flowArrow3">
+                <div class="flow-indicator text-green-500">
+                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clip-rule="evenodd"></path></svg>
+                </div>
+            </div>
+
+            <!-- Layer 1: Master Agent -->
+            <div id="layer1" class="bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 border border-purple-200 dark:border-purple-800 rounded-lg p-2 transition-all duration-300">
+                <div class="flex items-center gap-1.5 mb-1">
+                    <div class="w-6 h-6 rounded-full bg-gradient-to-r from-purple-500 to-pink-500 flex items-center justify-center text-[10px]">
+                        <span class="text-white">1</span>
+                    </div>
+                    <div>
+                        <h3 class="font-semibold text-[10px] text-purple-700 dark:text-purple-400">Master Agent</h3>
+                        <p class="text-[8px] text-gray-500">意图路由</p>
+                    </div>
+                </div>
+                <div class="flex flex-wrap gap-0.5">
+                    <span class="px-1 py-0.5 text-[8px] rounded bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400">意图识别</span>
+                    <span class="px-1 py-0.5 text-[8px] rounded bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400">实体提取</span>
+                    <span class="px-1 py-0.5 text-[8px] rounded bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400">执行规划</span>
+                </div>
+            </div>
+
+            <!-- Layer 2: Sub-scenario Agents -->
+            <div id="layer2" class="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-2 transition-all duration-300">
+                <div class="flex items-center gap-1.5 mb-1">
+                    <div class="w-6 h-6 rounded-full bg-gradient-to-r from-blue-500 to-indigo-500 flex items-center justify-center text-[10px]">
+                        <span class="text-white">2</span>
+                    </div>
+                    <div>
+                        <h3 class="font-semibold text-[10px] text-blue-700 dark:text-blue-400">子场景Agent</h3>
+                        <p class="text-[8px] text-gray-500">领域专家</p>
+                    </div>
+                    <div id="activeAgentBadge" class="ml-auto hidden">
+                        <span class="px-1.5 py-0.5 text-[8px] rounded-full bg-blue-500 text-white animate-pulse"></span>
+                    </div>
+                </div>
+                <div id="agentBadges" class="flex flex-wrap gap-0.5">
+                    <span class="agent-badge px-1 py-0.5 text-[8px] rounded bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400" data-agent="product-agent">产品</span>
+                    <span class="agent-badge px-1 py-0.5 text-[8px] rounded bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400" data-agent="pricing-agent">定价</span>
+                    <span class="agent-badge px-1 py-0.5 text-[8px] rounded bg-pink-100 dark:bg-pink-900/30 text-pink-700 dark:text-pink-400" data-agent="marketing-agent">营销</span>
+                    <span class="agent-badge px-1 py-0.5 text-[8px] rounded bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400" data-agent="supply-chain-agent">供应链</span>
+                    <span class="agent-badge px-1 py-0.5 text-[8px] rounded bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-400" data-agent="analytics-agent">分析</span>
+                </div>
+            </div>
+
+            <!-- Layer 3: Workflow Engine -->
+            <div id="layer3" class="bg-gradient-to-r from-cyan-50 to-teal-50 dark:from-cyan-900/20 dark:to-teal-900/20 border border-cyan-200 dark:border-cyan-800 rounded-lg p-2 transition-all duration-300">
+                <div class="flex items-center gap-1.5 mb-1">
+                    <div class="w-6 h-6 rounded-full bg-gradient-to-r from-cyan-500 to-teal-500 flex items-center justify-center text-[10px]">
+                        <span class="text-white">3</span>
+                    </div>
+                    <div>
+                        <h3 class="font-semibold text-[10px] text-cyan-700 dark:text-cyan-400">Workflow编排</h3>
+                        <p class="text-[8px] text-gray-500">流程引擎</p>
+                    </div>
+                </div>
+                <div id="workflowBadges" class="flex flex-wrap gap-0.5">
+                    <span class="workflow-badge px-1 py-0.5 text-[8px] rounded bg-cyan-100 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-400" data-workflow="product-launch-workflow">上市流程</span>
+                    <span class="workflow-badge px-1 py-0.5 text-[8px] rounded bg-cyan-100 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-400" data-workflow="price-adjust-workflow">调价流程</span>
+                    <span class="workflow-badge px-1 py-0.5 text-[8px] rounded bg-cyan-100 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-400" data-workflow="campaign-setup-workflow">活动流程</span>
+                </div>
+            </div>
+
+            <!-- Layer 4: Skills Executor -->
+            <div id="layer4" class="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 border border-green-200 dark:border-green-800 rounded-lg p-2 transition-all duration-300">
+                <div class="flex items-center gap-1.5 mb-1">
+                    <div class="w-6 h-6 rounded-full bg-gradient-to-r from-green-500 to-emerald-500 flex items-center justify-center text-[10px]">
+                        <span class="text-white">4</span>
+                    </div>
+                    <div>
+                        <h3 class="font-semibold text-[10px] text-green-700 dark:text-green-400">Skills执行</h3>
+                        <p class="text-[8px] text-gray-500">原子操作</p>
+                    </div>
+                </div>
+                <div id="systemBadges" class="flex flex-wrap gap-0.5">
+                    <span class="system-badge px-1 py-0.5 text-[8px] rounded bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400" data-system="POS">POS</span>
+                    <span class="system-badge px-1 py-0.5 text-[8px] rounded bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400" data-system="APP">App</span>
+                    <span class="system-badge px-1 py-0.5 text-[8px] rounded bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400" data-system="MENU_BOARD">菜单屏</span>
+                    <span class="system-badge px-1 py-0.5 text-[8px] rounded bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400" data-system="INVENTORY">库存</span>
+                    <span class="system-badge px-1 py-0.5 text-[8px] rounded bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400" data-system="PRICING">定价</span>
+                    <span class="system-badge px-1 py-0.5 text-[8px] rounded bg-pink-100 dark:bg-pink-900/30 text-pink-700 dark:text-pink-400" data-system="CRM">会员</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <main class="flex-1 grid grid-cols-1 lg:grid-cols-[260px_1fr_400px] gap-3 min-h-0">
+            <!-- Left Panel: Agents & Workflows -->
+            <div class="bg-white dark:bg-dark-card border border-gray-200 dark:border-dark-border rounded-lg overflow-hidden flex flex-col">
+                <div class="flex justify-between items-center px-3 py-2 border-b border-gray-200 dark:border-dark-border bg-gray-50 dark:bg-dark-hover">
+                    <div>
+                        <h2 class="font-semibold text-xs">Agent & Workflow</h2>
+                        <p class="text-[10px] text-gray-500">四层架构组件</p>
+                    </div>
+                </div>
+                <!-- Tabs -->
+                <div class="flex border-b border-gray-200 dark:border-dark-border">
+                    <button class="panel-tab flex-1 px-2 py-1.5 text-[10px] font-medium text-purple-600 dark:text-purple-400 border-b-2 border-purple-500" data-panel="agents">子Agent</button>
+                    <button class="panel-tab flex-1 px-2 py-1.5 text-[10px] text-gray-500 dark:text-gray-400" data-panel="workflows">工作流</button>
+                    <button class="panel-tab flex-1 px-2 py-1.5 text-[10px] text-gray-500 dark:text-gray-400" data-panel="skills">原子技能</button>
+                </div>
+                <!-- Agents Panel -->
+                <div id="agentsPanel" class="flex-1 overflow-y-auto p-2 space-y-1.5">
+                    <div id="agentsList"></div>
+                </div>
+                <!-- Workflows Panel -->
+                <div id="workflowsPanel" class="flex-1 overflow-y-auto p-2 space-y-1.5 hidden">
+                    <div id="workflowsList"></div>
+                </div>
+                <!-- Skills Panel -->
+                <div id="skillsPanel" class="flex-1 overflow-y-auto p-2 space-y-1.5 hidden">
+                    <div id="skillsList"></div>
+                </div>
+            </div>
+
+            <!-- Center Panel: Session Detail -->
+            <div class="flex flex-col gap-3 min-h-0">
+                <!-- Session Info -->
+                <div id="sessionPanel" class="bg-white dark:bg-dark-card border border-gray-200 dark:border-dark-border rounded-lg overflow-hidden">
+                    <div class="px-3 py-2 border-b border-gray-200 dark:border-dark-border bg-gray-50 dark:bg-dark-hover">
+                        <h2 class="font-semibold text-xs">会话详情</h2>
+                    </div>
+                    <div id="sessionContent" class="p-3">
+                        <div class="text-center text-gray-400 dark:text-gray-500 text-xs py-8">
+                            <svg class="w-8 h-8 mx-auto mb-2 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path>
+                            </svg>
+                            <p>输入自然语言指令开始会话</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Intent Analysis & Execution Plan -->
+                <div class="flex-1 bg-white dark:bg-dark-card border border-gray-200 dark:border-dark-border rounded-lg overflow-hidden flex flex-col min-h-0">
+                    <div class="flex justify-between items-center px-3 py-2 border-b border-gray-200 dark:border-dark-border bg-gray-50 dark:bg-dark-hover">
+                        <div class="flex items-center gap-2">
+                            <h2 class="font-semibold text-xs">执行追踪</h2>
+                            <span id="executionTimer" class="text-[10px] text-gray-400 hidden">
+                                <span class="inline-block w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse mr-1"></span>
+                                <span id="timerValue">0.0s</span>
+                            </span>
+                        </div>
+                        <button id="clearResultsBtn" class="px-2 py-1 text-[10px] font-medium bg-gray-200 dark:bg-dark-border hover:bg-gray-300 text-gray-700 dark:text-gray-300 rounded transition-colors">清空</button>
+                    </div>
+                    <div id="executionResults" class="flex-1 overflow-y-auto p-2 space-y-2">
+                        <div id="placeholder" class="h-full flex flex-col items-center justify-center text-gray-400 dark:text-gray-500 text-xs py-16">
+                            <svg class="w-10 h-10 mb-2 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path>
+                            </svg>
+                            <p>输入自然语言指令</p>
+                            <p class="text-[10px] mt-0.5">Master Agent 将自动处理</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Panel: Execution Log -->
+            <div class="bg-white dark:bg-dark-card border border-gray-200 dark:border-dark-border rounded-lg overflow-hidden flex flex-col">
+                <div class="flex justify-between items-center px-3 py-2 border-b border-gray-200 dark:border-dark-border bg-gray-50 dark:bg-dark-hover">
+                    <div class="flex items-center gap-3">
+                        <button id="tabExecution" class="result-tab text-xs font-medium text-purple-600 dark:text-purple-400 border-b-2 border-purple-500 pb-1" data-tab="execution">
+                            四层追踪
+                        </button>
+                        <button id="tabLog" class="result-tab text-xs text-gray-500 dark:text-gray-400 pb-1 hover:text-gray-700" data-tab="log">
+                            执行日志
+                        </button>
+                    </div>
+                </div>
+                <!-- Execution Tab -->
+                <div id="executionTab" class="flex-1 overflow-y-auto p-2 space-y-2">
+                    <div id="layerExecution">
+                        <div class="text-center text-gray-400 dark:text-gray-500 text-xs py-8">
+                            <p>四层架构执行追踪</p>
+                            <p class="text-[10px] mt-1">等待开始执行...</p>
+                        </div>
+                    </div>
+                </div>
+                <!-- Log Tab -->
+                <div id="logTab" class="flex-1 overflow-y-auto hidden">
+                    <div id="executionLog" class="font-mono text-[10px] p-2 space-y-0.5 bg-gray-900 dark:bg-black text-gray-300 min-h-full">
+                        <div class="text-gray-500"># 四层架构执行日志</div>
+                        <div class="text-gray-500"># 等待执行命令...</div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Tech Architecture PPT Modal -->
+    <div id="techPptModal" class="fixed inset-0 bg-black/70 backdrop-blur-sm hidden z-50 flex items-center justify-center p-4">
+        <div class="bg-slate-900 rounded-2xl shadow-2xl w-full max-w-6xl max-h-[95vh] overflow-hidden">
+            <!-- PPT Header -->
+            <div class="px-6 py-3 bg-gradient-to-r from-purple-600 via-pink-500 to-orange-500 flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <span class="text-white font-bold">总部运营Agent - 核心技术方案</span>
+                    <span class="px-2 py-0.5 text-[10px] bg-white/20 rounded-full text-white">四层架构 v2.0</span>
+                </div>
+                <div class="flex items-center gap-4">
+                    <div class="flex items-center gap-2 text-white/80 text-sm">
+                        <button id="pptPrevBtn" class="w-8 h-8 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center transition-colors">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
+                        </button>
+                        <span id="pptPageNum">1</span> / <span id="pptTotalPages">6</span>
+                        <button id="pptNextBtn" class="w-8 h-8 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center transition-colors">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+                        </button>
+                    </div>
+                    <button id="closePptModal" class="w-8 h-8 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center transition-colors">
+                        <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                    </button>
+                </div>
+            </div>
+
+            <!-- PPT Content -->
+            <div id="pptContent" class="p-8 overflow-y-auto bg-slate-900 text-white" style="height: calc(95vh - 60px);">
+                <!-- Slides will be rendered here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Business Impact Tracking Modal -->
+    <div id="businessImpactModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm hidden z-50 flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-dark-card rounded-2xl shadow-2xl w-full max-w-5xl max-h-[90vh] overflow-hidden">
+            <!-- Modal Header -->
+            <div class="px-6 py-4 bg-gradient-to-r from-orange-500 to-pink-500 flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
+                        <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                        </svg>
+                    </div>
+                    <div>
+                        <h2 class="text-lg font-bold text-white">业务报表</h2>
+                        <p class="text-xs text-white/80">Agent执行记录 & 业务效果分析</p>
+                    </div>
+                </div>
+                <button id="closeImpactModal" class="w-8 h-8 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center transition-colors">
+                    <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+
+            <!-- Modal Content -->
+            <div class="p-6 overflow-y-auto max-h-[calc(90vh-80px)]">
+                <!-- Summary Stats -->
+                <div class="grid grid-cols-4 gap-4 mb-6">
+                    <div class="p-4 rounded-xl bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 border border-green-200 dark:border-green-800">
+                        <div class="text-2xl font-bold text-green-600">¥2.4M</div>
+                        <div class="text-xs text-gray-500">新品7天销售额</div>
+                        <div class="text-[10px] text-green-500 mt-1">↑ 超预期 18%</div>
+                    </div>
+                    <div class="p-4 rounded-xl bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border border-blue-200 dark:border-blue-800">
+                        <div class="text-2xl font-bold text-blue-600">+12.5%</div>
+                        <div class="text-xs text-gray-500">调价后销量变化</div>
+                        <div class="text-[10px] text-blue-500 mt-1">弹性系数 -0.42</div>
+                    </div>
+                    <div class="p-4 rounded-xl bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 border border-purple-200 dark:border-purple-800">
+                        <div class="text-2xl font-bold text-purple-600">385%</div>
+                        <div class="text-xs text-gray-500">营销活动ROI</div>
+                        <div class="text-[10px] text-purple-500 mt-1">投入 ¥50K → 产出 ¥192K</div>
+                    </div>
+                    <div class="p-4 rounded-xl bg-gradient-to-br from-orange-50 to-amber-50 dark:from-orange-900/20 dark:to-amber-900/20 border border-orange-200 dark:border-orange-800">
+                        <div class="text-2xl font-bold text-orange-600">96.2h</div>
+                        <div class="text-xs text-gray-500">累计节省工时</div>
+                        <div class="text-[10px] text-orange-500 mt-1">相当于 12 人天</div>
+                    </div>
+                </div>
+
+                <!-- Agent Execution History -->
+                <div class="mb-6">
+                    <h3 class="text-sm font-bold mb-3 flex items-center gap-2">
+                        <span class="w-6 h-6 rounded-full bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center">
+                            <svg class="w-3 h-3 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                        </span>
+                        Agent执行记录
+                    </h3>
+                    <div class="space-y-2" id="agentExecutionHistory">
+                        <!-- Execution records will be rendered here -->
+                    </div>
+                </div>
+
+                <!-- Charts Grid -->
+                <div class="grid grid-cols-2 gap-6">
+                    <!-- 7-Day Sales Curve -->
+                    <div class="p-4 rounded-xl bg-gray-50 dark:bg-dark-bg border border-gray-200 dark:border-dark-border">
+                        <h4 class="text-sm font-bold mb-3 flex items-center gap-2">
+                            <span class="w-2 h-2 rounded-full bg-green-500"></span>
+                            新品上市7天销售曲线
+                        </h4>
+                        <div class="h-48" id="salesCurveChart">
+                            <!-- SVG Chart -->
+                            <svg viewBox="0 0 400 160" class="w-full h-full">
+                                <!-- Grid lines -->
+                                <g stroke="#e5e7eb" stroke-width="1" class="dark:stroke-gray-700">
+                                    <line x1="40" y1="20" x2="380" y2="20" stroke-dasharray="4"/>
+                                    <line x1="40" y1="55" x2="380" y2="55" stroke-dasharray="4"/>
+                                    <line x1="40" y1="90" x2="380" y2="90" stroke-dasharray="4"/>
+                                    <line x1="40" y1="125" x2="380" y2="125" stroke-dasharray="4"/>
+                                </g>
+                                <!-- Y-axis labels -->
+                                <g fill="#9ca3af" font-size="10" class="dark:fill-gray-500">
+                                    <text x="35" y="23" text-anchor="end">40万</text>
+                                    <text x="35" y="58" text-anchor="end">30万</text>
+                                    <text x="35" y="93" text-anchor="end">20万</text>
+                                    <text x="35" y="128" text-anchor="end">10万</text>
+                                </g>
+                                <!-- X-axis labels -->
+                                <g fill="#9ca3af" font-size="10" text-anchor="middle" class="dark:fill-gray-500">
+                                    <text x="65" y="150">Day1</text>
+                                    <text x="120" y="150">Day2</text>
+                                    <text x="175" y="150">Day3</text>
+                                    <text x="230" y="150">Day4</text>
+                                    <text x="285" y="150">Day5</text>
+                                    <text x="340" y="150">Day6</text>
+                                    <text x="365" y="150">Day7</text>
+                                </g>
+                                <!-- Sales curve -->
+                                <path d="M65,100 L120,85 L175,70 L230,55 L285,45 L340,40 L365,35"
+                                      fill="none" stroke="#22c55e" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+                                <!-- Data points -->
+                                <g fill="#22c55e">
+                                    <circle cx="65" cy="100" r="4"/>
+                                    <circle cx="120" cy="85" r="4"/>
+                                    <circle cx="175" cy="70" r="4"/>
+                                    <circle cx="230" cy="55" r="4"/>
+                                    <circle cx="285" cy="45" r="4"/>
+                                    <circle cx="340" cy="40" r="4"/>
+                                    <circle cx="365" cy="35" r="5" stroke="#fff" stroke-width="2"/>
+                                </g>
+                                <!-- Target line -->
+                                <line x1="40" y1="75" x2="380" y2="75" stroke="#f59e0b" stroke-width="2" stroke-dasharray="6,4"/>
+                                <text x="385" y="78" fill="#f59e0b" font-size="9">目标</text>
+                            </svg>
+                        </div>
+                        <div class="mt-2 flex justify-between text-[10px] text-gray-500">
+                            <span>📈 日均销售: ¥34.2万</span>
+                            <span class="text-green-500 font-medium">超目标 ¥6.7万/天</span>
+                        </div>
+                    </div>
+
+                    <!-- Price Change Impact -->
+                    <div class="p-4 rounded-xl bg-gray-50 dark:bg-dark-bg border border-gray-200 dark:border-dark-border">
+                        <h4 class="text-sm font-bold mb-3 flex items-center gap-2">
+                            <span class="w-2 h-2 rounded-full bg-blue-500"></span>
+                            调价后销量变化对比
+                        </h4>
+                        <div class="h-48" id="priceImpactChart">
+                            <!-- Bar Chart -->
+                            <svg viewBox="0 0 400 160" class="w-full h-full">
+                                <!-- Grid -->
+                                <g stroke="#e5e7eb" stroke-width="1" class="dark:stroke-gray-700">
+                                    <line x1="60" y1="20" x2="380" y2="20" stroke-dasharray="4"/>
+                                    <line x1="60" y1="55" x2="380" y2="55" stroke-dasharray="4"/>
+                                    <line x1="60" y1="90" x2="380" y2="90" stroke-dasharray="4"/>
+                                    <line x1="60" y1="125" x2="380" y2="125" stroke-dasharray="4"/>
+                                </g>
+                                <!-- Y-axis -->
+                                <g fill="#9ca3af" font-size="10" class="dark:fill-gray-500">
+                                    <text x="55" y="23" text-anchor="end">3000</text>
+                                    <text x="55" y="58" text-anchor="end">2000</text>
+                                    <text x="55" y="93" text-anchor="end">1000</text>
+                                    <text x="55" y="128" text-anchor="end">0</text>
+                                </g>
+                                <!-- Before bars (gray) -->
+                                <g fill="#d1d5db" class="dark:fill-gray-600">
+                                    <rect x="80" y="60" width="30" height="65" rx="4"/>
+                                    <rect x="160" y="50" width="30" height="75" rx="4"/>
+                                    <rect x="240" y="70" width="30" height="55" rx="4"/>
+                                    <rect x="320" y="55" width="30" height="70" rx="4"/>
+                                </g>
+                                <!-- After bars (blue) -->
+                                <g fill="#3b82f6">
+                                    <rect x="115" y="45" width="30" height="80" rx="4"/>
+                                    <rect x="195" y="35" width="30" height="90" rx="4"/>
+                                    <rect x="275" y="55" width="30" height="70" rx="4"/>
+                                    <rect x="355" y="40" width="30" height="85" rx="4"/>
+                                </g>
+                                <!-- X-axis labels -->
+                                <g fill="#9ca3af" font-size="10" text-anchor="middle" class="dark:fill-gray-500">
+                                    <text x="110" y="150">华东</text>
+                                    <text x="190" y="150">华南</text>
+                                    <text x="270" y="150">华北</text>
+                                    <text x="350" y="150">华西</text>
+                                </g>
+                                <!-- Legend -->
+                                <g font-size="9">
+                                    <rect x="280" y="5" width="12" height="8" fill="#d1d5db" rx="2"/>
+                                    <text x="296" y="12" fill="#9ca3af">调价前</text>
+                                    <rect x="330" y="5" width="12" height="8" fill="#3b82f6" rx="2"/>
+                                    <text x="346" y="12" fill="#9ca3af">调价后</text>
+                                </g>
+                            </svg>
+                        </div>
+                        <div class="mt-2 flex justify-between text-[10px] text-gray-500">
+                            <span>💰 均价: ¥25 → ¥28 (+12%)</span>
+                            <span class="text-blue-500 font-medium">销量: +12.5% (弹性-0.42)</span>
+                        </div>
+                    </div>
+
+                    <!-- ROI Analysis -->
+                    <div class="p-4 rounded-xl bg-gray-50 dark:bg-dark-bg border border-gray-200 dark:border-dark-border">
+                        <h4 class="text-sm font-bold mb-3 flex items-center gap-2">
+                            <span class="w-2 h-2 rounded-full bg-purple-500"></span>
+                            营销活动ROI分析
+                        </h4>
+                        <div class="space-y-3">
+                            <div class="flex items-center justify-between p-3 bg-white dark:bg-dark-card rounded-lg border border-gray-100 dark:border-dark-border">
+                                <div>
+                                    <div class="text-sm font-medium">新年满减活动</div>
+                                    <div class="text-[10px] text-gray-500">满30减5 · 1月1日-7日</div>
+                                </div>
+                                <div class="text-right">
+                                    <div class="text-lg font-bold text-green-600">385%</div>
+                                    <div class="text-[10px] text-gray-500">投入¥50K</div>
+                                </div>
+                            </div>
+                            <div class="flex items-center justify-between p-3 bg-white dark:bg-dark-card rounded-lg border border-gray-100 dark:border-dark-border">
+                                <div>
+                                    <div class="text-sm font-medium">新品首发优惠</div>
+                                    <div class="text-[10px] text-gray-500">新品9折 · 首周</div>
+                                </div>
+                                <div class="text-right">
+                                    <div class="text-lg font-bold text-blue-600">256%</div>
+                                    <div class="text-[10px] text-gray-500">投入¥30K</div>
+                                </div>
+                            </div>
+                            <div class="flex items-center justify-between p-3 bg-white dark:bg-dark-card rounded-lg border border-gray-100 dark:border-dark-border">
+                                <div>
+                                    <div class="text-sm font-medium">会员积分翻倍</div>
+                                    <div class="text-[10px] text-gray-500">双倍积分 · 周末</div>
+                                </div>
+                                <div class="text-right">
+                                    <div class="text-lg font-bold text-purple-600">412%</div>
+                                    <div class="text-[10px] text-gray-500">投入¥20K</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- System Impact Summary -->
+                    <div class="p-4 rounded-xl bg-gray-50 dark:bg-dark-bg border border-gray-200 dark:border-dark-border">
+                        <h4 class="text-sm font-bold mb-3 flex items-center gap-2">
+                            <span class="w-2 h-2 rounded-full bg-orange-500"></span>
+                            系统调用统计
+                        </h4>
+                        <div class="grid grid-cols-2 gap-2">
+                            <div class="p-2 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800">
+                                <div class="flex items-center gap-2">
+                                    <span class="text-lg">🏪</span>
+                                    <div>
+                                        <div class="text-sm font-bold text-red-600">POS</div>
+                                        <div class="text-[10px] text-gray-500">127次调用</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="p-2 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
+                                <div class="flex items-center gap-2">
+                                    <span class="text-lg">📱</span>
+                                    <div>
+                                        <div class="text-sm font-bold text-blue-600">APP</div>
+                                        <div class="text-[10px] text-gray-500">89次调用</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="p-2 rounded-lg bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800">
+                                <div class="flex items-center gap-2">
+                                    <span class="text-lg">📦</span>
+                                    <div>
+                                        <div class="text-sm font-bold text-yellow-600">库存</div>
+                                        <div class="text-[10px] text-gray-500">56次调用</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="p-2 rounded-lg bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800">
+                                <div class="flex items-center gap-2">
+                                    <span class="text-lg">💰</span>
+                                    <div>
+                                        <div class="text-sm font-bold text-purple-600">定价</div>
+                                        <div class="text-[10px] text-gray-500">34次调用</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="p-2 rounded-lg bg-pink-50 dark:bg-pink-900/20 border border-pink-200 dark:border-pink-800">
+                                <div class="flex items-center gap-2">
+                                    <span class="text-lg">👥</span>
+                                    <div>
+                                        <div class="text-sm font-bold text-pink-600">CRM</div>
+                                        <div class="text-[10px] text-gray-500">45次调用</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="p-2 rounded-lg bg-cyan-50 dark:bg-cyan-900/20 border border-cyan-200 dark:border-cyan-800">
+                                <div class="flex items-center gap-2">
+                                    <span class="text-lg">📢</span>
+                                    <div>
+                                        <div class="text-sm font-bold text-cyan-600">营销</div>
+                                        <div class="text-[10px] text-gray-500">38次调用</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>

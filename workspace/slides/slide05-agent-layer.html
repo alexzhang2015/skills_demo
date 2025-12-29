@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+html { background: #0A1628; }
+body {
+  width: 720pt; height: 405pt; margin: 0; padding: 0;
+  font-family: Arial, sans-serif;
+  display: flex; flex-direction: column;
+  background-image: url('../assets/bg-dark.png');
+  background-size: cover;
+}
+.header { padding: 10pt 40pt 4pt 40pt; }
+.header-title { color: #8B5CF6; font-size: 18pt; font-weight: bold; margin: 0; }
+.header-sub { color: #8BA4C4; font-size: 9pt; margin: 2pt 0 0 0; }
+.main { flex: 1; display: flex; padding: 4pt 40pt 36pt 40pt; gap: 12pt; }
+.master-section { width: 195pt; display: flex; flex-direction: column; gap: 6pt; }
+.master-card { background: rgba(139, 92, 246, 0.2); border: 2pt solid #8B5CF6; border-radius: 6pt; padding: 10pt; }
+.master-title { color: #8B5CF6; font-size: 12pt; font-weight: bold; margin: 0 0 6pt 0; }
+.master-list { color: #E0E0E0; font-size: 8pt; margin: 0; padding-left: 12pt; }
+.master-list li { margin-bottom: 3pt; }
+.input-box { background: rgba(30, 58, 95, 0.7); border-radius: 5pt; padding: 10pt; }
+.input-label { color: #F59E0B; font-size: 8pt; margin: 0 0 5pt 0; }
+.input-text { color: #B8C9DC; font-size: 8pt; margin: 0; font-style: italic; }
+.sub-section { flex: 1; display: flex; flex-direction: column; gap: 5pt; }
+.sub-title { color: #00D4FF; font-size: 10pt; font-weight: bold; margin: 0 0 4pt 0; }
+.sub-grid { display: flex; flex-wrap: wrap; gap: 5pt; }
+.sub-card { width: calc(50% - 2.5pt); background: rgba(0, 212, 255, 0.1); border: 1pt solid rgba(0, 212, 255, 0.4); border-radius: 4pt; padding: 6pt; }
+.sub-name { color: #00D4FF; font-size: 8pt; font-weight: bold; margin: 0 0 2pt 0; }
+.sub-desc { color: #B8C9DC; font-size: 7pt; margin: 0; }
+</style>
+</head>
+<body>
+<div class="header">
+  <h1 class="header-title">Master Agent - 总部运营Agent</h1>
+  <p class="header-sub">自然语言驱动的智能任务中枢</p>
+</div>
+<div class="main">
+  <div class="master-section">
+    <div class="master-card">
+      <h3 class="master-title">核心能力</h3>
+      <ul class="master-list">
+        <li>自然语言意图理解</li>
+        <li>多任务并行识别</li>
+        <li>子Agent智能分发</li>
+        <li>执行状态汇总</li>
+        <li>异常处理与重试</li>
+      </ul>
+    </div>
+    <div class="input-box">
+      <p class="input-label">自然语言输入示例</p>
+      <p class="input-text">"帮我上线一个新品川香麻辣鸡腿堡，定价25元，华东区汉堡类产品涨价8%"</p>
+    </div>
+  </div>
+  <div class="sub-section">
+    <h3 class="sub-title">子场景Agent矩阵</h3>
+    <div class="sub-grid">
+      <div class="sub-card">
+        <p class="sub-name">新品上市Agent</p>
+        <p class="sub-desc">产品创建、定价、上架全流程</p>
+      </div>
+      <div class="sub-card">
+        <p class="sub-name">价格调整Agent</p>
+        <p class="sub-desc">区域定价、批量调价、价格策略</p>
+      </div>
+      <div class="sub-card">
+        <p class="sub-name">促销配置Agent</p>
+        <p class="sub-desc">满减/折扣/赠品活动配置</p>
+      </div>
+      <div class="sub-card">
+        <p class="sub-name">库存管理Agent</p>
+        <p class="sub-desc">库存预警、补货建议、调拨</p>
+      </div>
+      <div class="sub-card">
+        <p class="sub-name">数据分析Agent</p>
+        <p class="sub-desc">销售报表、趋势分析、洞察</p>
+      </div>
+      <div class="sub-card">
+        <p class="sub-name">内容生成Agent</p>
+        <p class="sub-desc">营销文案、海报、推广素材</p>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

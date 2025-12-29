@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+html { background: #0A1628; }
+body {
+  width: 720pt; height: 405pt; margin: 0; padding: 0;
+  font-family: Arial, sans-serif;
+  display: flex; flex-direction: column;
+  background-image: url('../assets/bg-dark.png');
+  background-size: cover;
+}
+.header { padding: 8pt 40pt 3pt 40pt; }
+.header-title { color: #00D4FF; font-size: 16pt; font-weight: bold; margin: 0; }
+.main { flex: 1; display: flex; padding: 2pt 40pt 36pt 40pt; gap: 12pt; }
+.sequence { flex: 1; }
+.seq-row { display: flex; gap: 2pt; padding: 2pt 0; border-bottom: 1pt solid rgba(58, 90, 122, 0.3); }
+.seq-num { width: 12pt; color: #F59E0B; font-size: 7pt; font-weight: bold; }
+.seq-from { width: 55pt; color: #8B5CF6; font-size: 6.5pt; }
+.seq-arrow { width: 10pt; color: #8BA4C4; font-size: 6.5pt; text-align: center; }
+.seq-to { width: 55pt; color: #10B981; font-size: 6.5pt; }
+.seq-msg { flex: 1; color: #B8C9DC; font-size: 6.5pt; }
+.legend { width: 85pt; display: flex; flex-direction: column; gap: 4pt; }
+.legend-title { color: #FFFFFF; font-size: 8pt; font-weight: bold; margin: 0 0 3pt 0; }
+.legend-item { display: flex; align-items: center; gap: 4pt; }
+.legend-dot { width: 5pt; height: 5pt; border-radius: 50%; }
+.legend-text { color: #B8C9DC; font-size: 6.5pt; margin: 0; }
+</style>
+</head>
+<body>
+<div class="header">
+  <h1 class="header-title">川香麻辣鸡腿堡 - 执行时序图</h1>
+</div>
+<div class="main">
+  <div class="sequence">
+    <div class="seq-row"><p class="seq-num">1</p><p class="seq-from">运营人员</p><p class="seq-arrow">→</p><p class="seq-to">Master Agent</p><p class="seq-msg">自然语言: "上线川香麻辣鸡腿堡..."</p></div>
+    <div class="seq-row"><p class="seq-num">2</p><p class="seq-from">Master Agent</p><p class="seq-arrow">→</p><p class="seq-to">Master Agent</p><p class="seq-msg">解析意图, 识别3个子任务</p></div>
+    <div class="seq-row"><p class="seq-num">3</p><p class="seq-from">Master Agent</p><p class="seq-arrow">⇉</p><p class="seq-to">新品Agent</p><p class="seq-msg">分发任务1: 创建新品 [parallel]</p></div>
+    <div class="seq-row"><p class="seq-num">4</p><p class="seq-from">新品Agent</p><p class="seq-arrow">→</p><p class="seq-to">Workflow</p><p class="seq-msg">编排: product_create → price_set</p></div>
+    <div class="seq-row"><p class="seq-num">5</p><p class="seq-from">Workflow</p><p class="seq-arrow">→</p><p class="seq-to">Skills执行器</p><p class="seq-msg">调用 product_create_skill</p></div>
+    <div class="seq-row"><p class="seq-num">6</p><p class="seq-from">Skills执行器</p><p class="seq-arrow">↔</p><p class="seq-to">产品系统</p><p class="seq-msg">创建产品: 川香麻辣鸡腿堡</p></div>
+    <div class="seq-row"><p class="seq-num">7</p><p class="seq-from">Workflow</p><p class="seq-arrow">→</p><p class="seq-to">Skills执行器</p><p class="seq-msg">调用 price_set_skill (定价25元)</p></div>
+    <div class="seq-row"><p class="seq-num">8</p><p class="seq-from">Master Agent</p><p class="seq-arrow">⇉</p><p class="seq-to">价格Agent</p><p class="seq-msg">分发任务2: 华东区调价 [parallel]</p></div>
+    <div class="seq-row"><p class="seq-num">9</p><p class="seq-from">价格Agent</p><p class="seq-arrow">→</p><p class="seq-to">Skills执行器</p><p class="seq-msg">调用 batch_price_skill (+8%)</p></div>
+    <div class="seq-row"><p class="seq-num">10</p><p class="seq-from">Master Agent</p><p class="seq-arrow">⇉</p><p class="seq-to">促销Agent</p><p class="seq-msg">分发任务3: 满减配置 [parallel]</p></div>
+    <div class="seq-row"><p class="seq-num">11</p><p class="seq-from">促销Agent</p><p class="seq-arrow">→</p><p class="seq-to">Skills执行器</p><p class="seq-msg">调用 promo_create_skill (满30减5)</p></div>
+    <div class="seq-row"><p class="seq-num">12</p><p class="seq-from">Master Agent</p><p class="seq-arrow">→</p><p class="seq-to">运营人员</p><p class="seq-msg">汇总结果: 3个任务全部完成 ✓</p></div>
+  </div>
+  <div class="legend">
+    <h3 class="legend-title">执行模式</h3>
+    <div class="legend-item"><div class="legend-dot" style="background:#8B5CF6;"></div><p class="legend-text">Master分发</p></div>
+    <div class="legend-item"><div class="legend-dot" style="background:#00D4FF;"></div><p class="legend-text">子Agent处理</p></div>
+    <div class="legend-item"><div class="legend-dot" style="background:#F59E0B;"></div><p class="legend-text">Workflow编排</p></div>
+    <div class="legend-item"><div class="legend-dot" style="background:#10B981;"></div><p class="legend-text">Skills执行</p></div>
+    <div class="legend-item"><div class="legend-dot" style="background:#667EEA;"></div><p class="legend-text">并行执行</p></div>
+  </div>
+</div>
+</body>
+</html>

@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+html { background: #0A1628; }
+body {
+  width: 720pt; height: 405pt; margin: 0; padding: 0;
+  font-family: Arial, sans-serif;
+  display: flex; flex-direction: column;
+  background-image: url('../assets/bg-accent.png');
+  background-size: cover;
+}
+.header { padding: 18pt 40pt 10pt 40pt; }
+.header-title { color: #FFFFFF; font-size: 24pt; font-weight: bold; margin: 0; }
+.main { flex: 1; display: flex; padding: 5pt 40pt 36pt 40pt; gap: 20pt; }
+.evolution { flex: 1; display: flex; flex-direction: column; gap: 10pt; }
+.evo-card {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 8pt; padding: 14pt;
+  border-left: 4pt solid #10B981;
+}
+.evo-title { color: #FFFFFF; font-size: 14pt; font-weight: bold; margin: 0 0 6pt 0; }
+.evo-desc { color: #E0E0E0; font-size: 11pt; margin: 0; line-height: 1.4; }
+.vision { width: 220pt; display: flex; flex-direction: column; justify-content: center; }
+.vision-box {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 10pt; padding: 20pt;
+  border: 2pt solid rgba(16, 185, 129, 0.5);
+  text-align: center;
+}
+.vision-label { color: #10B981; font-size: 11pt; margin: 0 0 8pt 0; }
+.vision-title { color: #FFFFFF; font-size: 18pt; font-weight: bold; margin: 0 0 12pt 0; }
+.vision-text { color: #E0E0E0; font-size: 11pt; margin: 0; line-height: 1.5; }
+</style>
+</head>
+<body>
+<div class="header">
+  <h1 class="header-title">Agent Skills 演进方向</h1>
+</div>
+<div class="main">
+  <div class="evolution">
+    <div class="evo-card">
+      <h3 class="evo-title">自主学习</h3>
+      <p class="evo-desc">Agent自动从执行反馈中学习，持续优化Skills调用策略，自动发现并注册新能力。</p>
+    </div>
+    <div class="evo-card" style="border-left-color: #00D4FF;">
+      <h3 class="evo-title">跨域协作</h3>
+      <p class="evo-desc">多Agent联邦协作，跨企业、跨生态的Skills共享与调用，构建开放能力市场。</p>
+    </div>
+    <div class="evo-card" style="border-left-color: #8B5CF6;">
+      <h3 class="evo-title">决策智能</h3>
+      <p class="evo-desc">从任务执行到战略决策的全面智能化，Agent参与业务规划、资源调配、风险预警。</p>
+    </div>
+  </div>
+  <div class="vision">
+    <div class="vision-box">
+      <p class="vision-label">VISION</p>
+      <h3 class="vision-title">AI Native 运营体系</h3>
+      <p class="vision-text">构建以AI Agent为核心的企业级智能运营体系，实现从人工驱动到AI驱动的范式转变。</p>
+    </div>
+  </div>
+</div>
+</body>
+</html>

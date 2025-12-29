@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+html { background: #0A1628; }
+body {
+  width: 720pt; height: 405pt; margin: 0; padding: 0;
+  font-family: Arial, sans-serif;
+  display: flex; flex-direction: column;
+  background-image: url('../assets/bg-dark.png');
+  background-size: cover;
+}
+.header { padding: 12pt 40pt 6pt 40pt; }
+.header-title { color: #10B981; font-size: 18pt; font-weight: bold; margin: 0; }
+.main { flex: 1; padding: 5pt 40pt 36pt 40pt; }
+.table-container { background: rgba(30, 58, 95, 0.5); border-radius: 6pt; overflow: hidden; }
+.table-row { display: flex; border-bottom: 1pt solid #3A5A7A; }
+.table-row:last-child { border-bottom: none; }
+.table-row.header-row { background: rgba(16, 185, 129, 0.3); }
+.cell { padding: 5pt 6pt; display: flex; align-items: center; }
+.cell-stage { width: 60pt; }
+.cell-skill { width: 100pt; }
+.cell-desc { flex: 1; }
+.cell-mcp { width: 90pt; }
+.header-text { color: #10B981; font-size: 8pt; font-weight: bold; margin: 0; }
+.stage-text { color: #F59E0B; font-size: 7pt; font-weight: bold; margin: 0; }
+.skill-text { color: #7C3AED; font-size: 7pt; font-family: monospace; margin: 0; }
+.desc-text { color: #B8C9DC; font-size: 7pt; margin: 0; }
+.mcp-text { color: #0EA5E9; font-size: 6pt; font-family: monospace; margin: 0; }
+</style>
+</head>
+<body>
+<div class="header">
+  <h1 class="header-title">新品上市 Skills + MCP 能力矩阵</h1>
+</div>
+<div class="main">
+  <div class="table-container">
+    <div class="table-row header-row">
+      <div class="cell cell-stage"><p class="header-text">阶段</p></div>
+      <div class="cell cell-skill"><p class="header-text">Skill 名称</p></div>
+      <div class="cell cell-desc"><p class="header-text">功能描述</p></div>
+      <div class="cell cell-mcp"><p class="header-text">MCP Tools</p></div>
+    </div>
+    <div class="table-row">
+      <div class="cell cell-stage"><p class="stage-text">产品创建</p></div>
+      <div class="cell cell-skill"><p class="skill-text">inventory.sku</p></div>
+      <div class="cell cell-desc"><p class="desc-text">创建产品SKU，录入基础信息</p></div>
+      <div class="cell cell-mcp"><p class="mcp-text">erp.product.create</p></div>
+    </div>
+    <div class="table-row">
+      <div class="cell cell-stage"></div>
+      <div class="cell cell-skill"><p class="skill-text">inventory.bom</p></div>
+      <div class="cell cell-desc"><p class="desc-text">配置物料清单，原料配比</p></div>
+      <div class="cell cell-mcp"><p class="mcp-text">erp.bom.set</p></div>
+    </div>
+    <div class="table-row">
+      <div class="cell cell-stage"><p class="stage-text">价格配置</p></div>
+      <div class="cell cell-skill"><p class="skill-text">pricing.calc</p></div>
+      <div class="cell cell-desc"><p class="desc-text">计算定价，成本核算</p></div>
+      <div class="cell cell-mcp"><p class="mcp-text">price.engine.calc</p></div>
+    </div>
+    <div class="table-row">
+      <div class="cell cell-stage"></div>
+      <div class="cell cell-skill"><p class="skill-text">pricing.batch</p></div>
+      <div class="cell cell-desc"><p class="desc-text">区域批量调价</p></div>
+      <div class="cell cell-mcp"><p class="mcp-text">price.batch.update</p></div>
+    </div>
+    <div class="table-row">
+      <div class="cell cell-stage"><p class="stage-text">促销配置</p></div>
+      <div class="cell cell-skill"><p class="skill-text">promo.create</p></div>
+      <div class="cell cell-desc"><p class="desc-text">创建满减/折扣活动</p></div>
+      <div class="cell cell-mcp"><p class="mcp-text">promo.engine.set</p></div>
+    </div>
+    <div class="table-row">
+      <div class="cell cell-stage"><p class="stage-text">渠道发布</p></div>
+      <div class="cell cell-skill"><p class="skill-text">product.publish</p></div>
+      <div class="cell cell-desc"><p class="desc-text">多渠道并行发布上架</p></div>
+      <div class="cell cell-mcp"><p class="mcp-text">pos.product | app.sync</p></div>
+    </div>
+    <div class="table-row">
+      <div class="cell cell-stage"></div>
+      <div class="cell cell-skill"><p class="skill-text">menu.update</p></div>
+      <div class="cell cell-desc"><p class="desc-text">菜单屏/点餐屏更新</p></div>
+      <div class="cell cell-mcp"><p class="mcp-text">menuboard.push</p></div>
+    </div>
+  </div>
+</div>
+</body>
+</html>
