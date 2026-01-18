@@ -14,7 +14,7 @@ from .executor import SkillExecutor
 
 class SkillsEngine:
     """
-    总部运营Agent引擎
+    Agentic Operations 引擎
 
     技术架构:
     ┌─────────────────────────────────────────┐

@@ -1,4 +1,4 @@
-// 总部运营Agent - 前端应用
+// Agentic Operations - 前端应用
 
 class SkillsApp {
     constructor() {
@@ -16,7 +16,7 @@ class SkillsApp {
         this.bindElements();
         this.bindEvents();
         this.loadAllData();
-        console.log('总部运营Agent 四层架构已初始化');
+        console.log('Agentic Operations 平台已初始化');
     }
 
     async loadAllData() {
@@ -195,15 +195,29 @@ class SkillsApp {
             });
         }
 
-        // Tech PPT Modal
+        // Tech Documentation PDF
         const techPptBtn = document.getElementById('techPptBtn');
         const techPptModal = document.getElementById('techPptModal');
         const closePptModal = document.getElementById('closePptModal');
         const pptPrevBtn = document.getElementById('pptPrevBtn');
         const pptNextBtn = document.getElementById('pptNextBtn');
 
-        if (techPptBtn && techPptModal) {
-            techPptBtn.addEventListener('click', () => this.openTechPptModal());
+        if (techPptBtn) {
+            techPptBtn.addEventListener('click', () => {
+                window.open('/static/Agentic_Operations_Skills_Platform.pdf', '_blank');
+            });
+        }
+
+        // Video Tutorial Button
+        const videoBtn = document.getElementById('videoBtn');
+        if (videoBtn) {
+            videoBtn.addEventListener('click', () => {
+                window.open('/static/智能体运营：将手动流程转变为自动化技能.mp4', '_blank');
+            });
+        }
+
+        // Keep modal handlers for potential future use
+        if (techPptModal) {
             closePptModal?.addEventListener('click', () => this.closeTechPptModal());
             techPptModal.addEventListener('click', (e) => {
                 if (e.target === techPptModal) this.closeTechPptModal();
@@ -2661,9 +2675,9 @@ class SkillsApp {
                 </div>
             `
         },
-        // Slide 5: Master Agent - 总部运营Agent
+        // Slide 5: Master Agent - 意图路由层
         {
-            title: 'Master Agent - 总部运营Agent',
+            title: 'Master Agent - 意图路由层',
             content: `
                 <div class="grid grid-cols-2 gap-6">
                     <div class="p-5 rounded-xl bg-purple-900/30 border border-purple-500">
@@ -2673,7 +2687,7 @@ class SkillsApp {
                             </div>
                             <div>
                                 <div class="text-white font-bold text-lg">Master Agent</div>
-                                <div class="text-purple-300 text-sm">总部运营智能中枢</div>
+                                <div class="text-purple-300 text-sm">运营智能中枢</div>
                             </div>
                         </div>
                         <div class="space-y-2 text-sm">

@@ -20,15 +20,20 @@ from .capture.generator import get_generator
 from .capture.refiner import get_refiner, RefineOptions
 
 app = FastAPI(
-    title="总部运营Agent",
-    description="AI驱动的餐饮连锁运营自动化演示 - 四层架构Agent系统",
-    version="2.0.0",
+    title="Agentic Operations",
+    description="企业级 AI 运营自动化平台 - Operations as Code",
+    version="2.1.0",
 )
 
 # Setup templates and static files
 BASE_DIR = Path(__file__).resolve().parent.parent
 app.mount("/static", StaticFiles(directory=BASE_DIR / "static"), name="static")
-app.mount("/slides", StaticFiles(directory=BASE_DIR / "workspace" / "slides"), name="slides")
+
+# Optional slides mount (only if directory exists)
+slides_dir = BASE_DIR / "workspace" / "slides"
+if slides_dir.exists():
+    app.mount("/slides", StaticFiles(directory=slides_dir), name="slides")
+
 templates = Jinja2Templates(directory=BASE_DIR / "templates")
 
 # ==================== 四层架构初始化 ====================
