@@ -3,11 +3,21 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import HTMLResponse
 from pathlib import Path
-from typing import Optional
+from typing import Optional, List
 from pydantic import BaseModel
 
 from .layers import SkillExecutor, WorkflowEngine, SubAgentManager, MasterAgent
 from .mcp import MCPClient
+
+# 新增模块导入
+from .skills_engine import get_skills_engine, UnifiedSkillsEngine
+from .tool_router import ToolAccessLevel as AccessLevel
+from .governance.metrics import get_metrics_collector
+from .governance.audit import get_audit_logger
+from .governance.alerts import get_alert_manager
+from .capture.recorder import get_recorder, ActionType, ElementSelector
+from .capture.generator import get_generator
+from .capture.refiner import get_refiner, RefineOptions
 
 app = FastAPI(
     title="总部运营Agent",
@@ -395,5 +405,340 @@ async def get_architecture():
             "servers": [s.model_dump() for s in mcp_client.server_registry.get_all_servers()],
             "tool_count": len(mcp_client.get_available_tools()),
             "skill_to_mcp_mapping": skill_executor.SKILL_TO_MCP_TOOLS,
+        },
+    }
+
+
+# ==================== 新增: 统一 Skills 引擎 API ====================
+
+# 初始化统一引擎
+unified_engine = get_skills_engine()
+
+
+class UnifiedSkillExecuteRequest(BaseModel):
+    """统一 Skill 执行请求"""
+    parameters: dict = {}
+    user_id: Optional[str] = None
+    session_id: Optional[str] = None
+    access_levels: List[str] = ["read"]
+
+
+class ProviderSwitchRequest(BaseModel):
+    """切换 LLM Provider 请求"""
+    provider: str
+    model: Optional[str] = None
+
+
+@app.post("/api/v2/skills/{skill_id}/execute")
+async def execute_skill_v2(skill_id: str, request: UnifiedSkillExecuteRequest):
+    """使用统一引擎执行 Skill"""
+    access_levels = [AccessLevel(level) for level in request.access_levels]
+
+    result = unified_engine.execute(
+        skill_id=skill_id,
+        parameters=request.parameters,
+        user_id=request.user_id,
+        session_id=request.session_id,
+        access_levels=access_levels,
+    )
+    return result.to_dict()
+
+
+@app.get("/api/v2/skills")
+async def list_skills_v2(category: Optional[str] = None):
+    """列出所有 Skills (v2)"""
+    skills = unified_engine.list_skills(category=category)
+    return {"skills": [s.to_dict() for s in skills]}
+
+
+@app.get("/api/v2/skills/search")
+async def search_skills_v2(q: str, top_k: int = 5, use_vector: bool = True):
+    """搜索 Skills (支持语义搜索)"""
+    skills = unified_engine.search_skills(query=q, top_k=top_k, use_vector=use_vector)
+    return {"skills": [s.to_dict() for s in skills if s]}
+
+
+@app.get("/api/v2/skills/{skill_id}")
+async def get_skill_v2(skill_id: str):
+    """获取 Skill 详情 (v2)"""
+    skill = unified_engine.load_skill(skill_id)
+    if not skill:
+        raise HTTPException(status_code=404, detail="Skill not found")
+    return skill.to_dict()
+
+
+@app.get("/api/v2/skills/{skill_id}/stats")
+async def get_skill_stats(skill_id: str):
+    """获取 Skill 统计信息"""
+    stats = unified_engine.get_skill_stats(skill_id)
+    if not stats:
+        raise HTTPException(status_code=404, detail="Skill not found")
+    return stats
+
+
+@app.post("/api/v2/provider")
+async def switch_provider(request: ProviderSwitchRequest):
+    """切换 LLM Provider"""
+    unified_engine.set_provider(request.provider, request.model)
+    return unified_engine.get_provider_info()
+
+
+@app.get("/api/v2/provider")
+async def get_provider_info():
+    """获取当前 LLM Provider 信息"""
+    return unified_engine.get_provider_info()
+
+
+# ==================== 新增: 治理监控 API ====================
+
+@app.get("/api/governance/metrics")
+async def get_governance_metrics():
+    """获取治理监控指标"""
+    return unified_engine.get_metrics()
+
+
+@app.get("/api/governance/metrics/dashboard")
+async def get_metrics_dashboard():
+    """获取监控仪表盘"""
+    metrics = get_metrics_collector()
+    dashboard = metrics.get_dashboard()
+    return {
+        "global_success_rate": dashboard.global_success_rate,
+        "total_executions": dashboard.total_executions,
+        "avg_duration_ms": dashboard.avg_duration_ms,
+        "skills": dashboard.skills,
+        "updated_at": dashboard.updated_at.isoformat() if dashboard.updated_at else None,
+    }
+
+
+@app.get("/api/governance/alerts")
+async def get_alerts(active_only: bool = True):
+    """获取告警"""
+    alert_manager = get_alert_manager()
+    if active_only:
+        alerts = alert_manager.get_active_alerts()
+    else:
+        alerts = list(alert_manager._alerts.values())
+    return {"alerts": [a.to_dict() for a in alerts]}
+
+
+class AlertAcknowledgeRequest(BaseModel):
+    """告警确认请求"""
+    acknowledged_by: str
+
+
+@app.post("/api/governance/alerts/{alert_id}/acknowledge")
+async def acknowledge_alert(alert_id: str, request: AlertAcknowledgeRequest):
+    """确认告警"""
+    alert_manager = get_alert_manager()
+    alert = alert_manager.acknowledge(alert_id, request.acknowledged_by)
+    if not alert:
+        raise HTTPException(status_code=404, detail="Alert not found")
+    return alert.to_dict()
+
+
+@app.post("/api/governance/alerts/{alert_id}/resolve")
+async def resolve_alert(alert_id: str):
+    """解决告警"""
+    alert_manager = get_alert_manager()
+    alert = alert_manager.resolve(alert_id)
+    if not alert:
+        raise HTTPException(status_code=404, detail="Alert not found")
+    return alert.to_dict()
+
+
+@app.get("/api/governance/audit")
+async def get_audit_logs(
+    execution_id: Optional[str] = None,
+    event_type: Optional[str] = None,
+    limit: int = 100
+):
+    """获取审计日志"""
+    audit = get_audit_logger()
+    logs = audit.get_logs(
+        execution_id=execution_id,
+        event_type=event_type,
+        limit=limit,
+    )
+    return {"logs": [log.to_dict() for log in logs]}
+
+
+# ==================== 新增: 录制和生成 API ====================
+
+class StartRecordingRequest(BaseModel):
+    """开始录制请求"""
+    name: Optional[str] = None
+    start_url: Optional[str] = None
+    recorded_by: Optional[str] = None
+
+
+class RecordActionRequest(BaseModel):
+    """记录操作请求"""
+    action_type: str
+    selector: Optional[dict] = None
+    url: Optional[str] = None
+    value: Optional[str] = None
+    key: Optional[str] = None
+    page_url: Optional[str] = None
+    page_title: Optional[str] = None
+
+
+class GenerateSkillRequest(BaseModel):
+    """生成 Skill 请求"""
+    session_id: str
+    skill_name: Optional[str] = None
+    category: Optional[str] = None
+
+
+class RefineSkillRequest(BaseModel):
+    """优化 Skill 请求"""
+    parameterize: bool = True
+    add_error_handling: bool = True
+    add_examples: bool = True
+
+
+@app.post("/api/capture/recording/start")
+async def start_recording(request: StartRecordingRequest):
+    """开始录制"""
+    recorder = get_recorder()
+    session = recorder.start_session(
+        name=request.name,
+        start_url=request.start_url,
+        recorded_by=request.recorded_by,
+    )
+    return session.to_dict()
+
+
+@app.post("/api/capture/recording/{session_id}/action")
+async def record_action(session_id: str, request: RecordActionRequest):
+    """记录操作"""
+    recorder = get_recorder()
+
+    # 转换选择器
+    selector = None
+    if request.selector:
+        selector = ElementSelector(
+            selector=request.selector.get("selector", ""),
+            selector_type=request.selector.get("selector_type", "css"),
+            tag_name=request.selector.get("tag_name"),
+            text_content=request.selector.get("text_content"),
+            attributes=request.selector.get("attributes", {}),
+        )
+
+    action = recorder.record_action(
+        action_type=ActionType(request.action_type),
+        selector=selector,
+        url=request.url,
+        value=request.value,
+        key=request.key,
+        page_url=request.page_url,
+        page_title=request.page_title,
+        session_id=session_id,
+    )
+    return action.to_dict()
+
+
+@app.post("/api/capture/recording/{session_id}/stop")
+async def stop_recording(session_id: str):
+    """停止录制"""
+    recorder = get_recorder()
+    session = recorder.end_session(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Recording session not found")
+    return session.to_dict()
+
+
+@app.get("/api/capture/recording/{session_id}")
+async def get_recording(session_id: str):
+    """获取录制详情"""
+    recorder = get_recorder()
+    session = recorder.get_session(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Recording session not found")
+    return session.to_dict()
+
+
+@app.get("/api/capture/recordings")
+async def list_recordings():
+    """列出所有录制"""
+    recorder = get_recorder()
+    sessions = recorder.list_sessions()
+    return {"recordings": [s.to_dict() for s in sessions]}
+
+
+@app.post("/api/capture/generate")
+async def generate_skill_from_recording(request: GenerateSkillRequest):
+    """从录制生成 Skill"""
+    recorder = get_recorder()
+    generator = get_generator()
+
+    session = recorder.get_session(request.session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Recording session not found")
+
+    skill = generator.generate(
+        recording=session,
+        skill_name=request.skill_name,
+        category=request.category,
+    )
+
+    return {
+        "name": skill.name,
+        "description": skill.description,
+        "parameters": [{"name": p.name, "type": p.param_type, "description": p.description} for p in skill.parameters],
+        "steps": [{"number": s.step_number, "title": s.title, "actions": s.actions} for s in skill.steps],
+        "content": skill.to_skill_md(),
+    }
+
+
+@app.post("/api/capture/refine")
+async def refine_skill(request: RefineSkillRequest, skill_content: str):
+    """优化 Skill"""
+    refiner = get_refiner()
+    # 注意：这里需要先解析 skill_content 为 GeneratedSkill 对象
+    # 简化实现，返回优化建议
+    return {
+        "suggestions": [
+            "考虑添加更多参数化",
+            "建议使用更稳定的选择器",
+            "添加错误处理逻辑",
+        ]
+    }
+
+
+# ==================== 系统状态扩展 ====================
+
+@app.get("/api/v2/status")
+async def get_status_v2():
+    """获取系统状态 (v2 - 包含新模块)"""
+    metrics = unified_engine.get_metrics()
+    provider_info = unified_engine.get_provider_info()
+
+    return {
+        "version": "2.1.0",
+        "architecture": "4-layer-agent + unified-engine",
+        "provider": provider_info,
+        "governance": {
+            "global_success_rate": metrics.get("global_success_rate", 0),
+            "total_executions": metrics.get("total_executions", 0),
+            "active_alerts": metrics.get("active_alerts", 0),
+        },
+        "layers": {
+            "layer1_master_agent": {
+                "sessions_count": len(master_agent.get_all_sessions()),
+            },
+            "layer2_sub_agents": {
+                "agents_count": len(sub_agent_manager.get_all_agents()),
+            },
+            "layer3_workflows": {
+                "workflows_count": len(workflow_engine.get_all_workflows()),
+            },
+            "layer4_skills": {
+                "skills_count": len(skill_executor.get_all_skills()),
+            },
+        },
+        "mcp": {
+            "servers_count": len(mcp_client.server_registry.get_all_servers()),
+            "tools_count": len(mcp_client.get_available_tools()),
         },
     }

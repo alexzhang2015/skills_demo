@@ -2,48 +2,115 @@
 
 ## 项目概述
 
-Skills Demo 是一个用于编写、调试和执行 Claude Skills 的 Web 演示应用。
+Skills Demo 是一个企业级 AI 运营自动化平台，实现"运营即代码"（Operations as Code）理念。
 
 | 项目信息 | 详情 |
 |---------|------|
-| 技术栈 | FastAPI + Jinja2 + Tailwind CSS + Vanilla JS |
+| 技术栈 | FastAPI + SQLAlchemy + Multi-LLM Providers |
 | Python 版本 | >= 3.10 |
 | 包管理 | uv |
+| 版本 | 2.1.0 |
 
 ---
 
 ## 架构设计
 
+### 整体架构
+
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                        Frontend                              │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────┐  │
-│  │ Skills List │  │   Editor    │  │ Execution Results   │  │
-│  │   Panel     │  │   Panel     │  │      Panel          │  │
-│  └─────────────┘  └─────────────┘  └─────────────────────┘  │
-│                         │                                    │
-│                    Tailwind CSS + app.js                     │
-└─────────────────────────┬───────────────────────────────────┘
-                          │ HTTP/JSON
-┌─────────────────────────┴───────────────────────────────────┐
-│                     FastAPI Backend                          │
-│  ┌──────────────────────────────────────────────────────┐   │
-│  │                    API Routes                         │   │
-│  │  /api/skills (CRUD)  │  /api/execute  │  /api/executions │
-│  └──────────────────────┴────────────────┴──────────────┘   │
-│                          │                                   │
-│  ┌──────────────────────┴───────────────────────────────┐   │
-│  │                   SkillsEngine                        │   │
-│  │  - Skill Management    - Step Parser                  │   │
-│  │  - Execution Engine    - Result Generator             │   │
-│  └───────────────────────────────────────────────────────┘   │
-│                          │                                   │
-│  ┌───────────────────────┴──────────────────────────────┐   │
-│  │              In-Memory Storage                        │   │
-│  │  skills: dict[str, Skill]                            │   │
-│  │  executions: dict[str, ExecutionResult]              │   │
-│  └───────────────────────────────────────────────────────┘   │
-└──────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────┐
+│                           用户层 (User Layer)                             │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────────────────────┐   │
+│  │  Web UI      │  │  CLI         │  │  API Client                  │   │
+│  └──────────────┘  └──────────────┘  └──────────────────────────────┘   │
+└─────────────────────────────────────┬───────────────────────────────────┘
+                                      │ HTTP/JSON
+┌─────────────────────────────────────┴───────────────────────────────────┐
+│                         API 层 (FastAPI Routes)                          │
+│  ┌─────────────────────────────────────────────────────────────────┐    │
+│  │  /api/v2/skills/*    统一 Skills API                             │    │
+│  │  /api/governance/*   治理监控 API                                │    │
+│  │  /api/capture/*      录制生成 API                                │    │
+│  │  /api/skills/*       原有四层架构 API                            │    │
+│  └─────────────────────────────────────────────────────────────────┘    │
+└─────────────────────────────────────┬───────────────────────────────────┘
+                                      │
+┌─────────────────────────────────────┴───────────────────────────────────┐
+│                        统一引擎层 (Unified Engine)                        │
+│  ┌─────────────────────────────────────────────────────────────────┐    │
+│  │                    UnifiedSkillsEngine                           │    │
+│  │  • Skill 加载与执行    • 多 LLM Provider 支持                     │    │
+│  │  • 工具路由与权限      • 监控与审计                               │    │
+│  └─────────────────────────────────────────────────────────────────┘    │
+└──────────┬──────────────┬──────────────┬──────────────┬─────────────────┘
+           │              │              │              │
+    ┌──────┴──────┐ ┌─────┴─────┐ ┌──────┴──────┐ ┌─────┴─────┐
+    │ LLM Provider│ │Tool Router│ │ Governance  │ │  Capture  │
+    │    Layer    │ │   Layer   │ │   Layer     │ │   Layer   │
+    └──────┬──────┘ └─────┬─────┘ └──────┬──────┘ └─────┬─────┘
+           │              │              │              │
+┌──────────┴──────────────┴──────────────┴──────────────┴─────────────────┐
+│                          存储层 (Storage Layer)                           │
+│  ┌─────────────────────────────────────────────────────────────────┐    │
+│  │  SQLite/PostgreSQL    Vector Store    File System (.claude/)    │    │
+│  └─────────────────────────────────────────────────────────────────┘    │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+### 六层模块架构
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                      Layer 1: LLM Provider 抽象层                         │
+│  ┌────────────┐ ┌────────────┐ ┌────────────┐ ┌────────────┐           │
+│  │   Claude   │ │   OpenAI   │ │   Gemini   │ │   Ollama   │           │
+│  │  Provider  │ │  Provider  │ │  Provider  │ │  Provider  │           │
+│  └────────────┘ └────────────┘ └────────────┘ └────────────┘           │
+│                         ↓ 统一接口 BaseLLMProvider                        │
+└─────────────────────────────────────────────────────────────────────────┘
+                                  │
+┌─────────────────────────────────┴───────────────────────────────────────┐
+│                      Layer 2: Tool Router 工具路由层                       │
+│  ┌─────────────────────────────────────────────────────────────────┐    │
+│  │  工具注册    权限检查    格式适配    执行路由                      │    │
+│  │  ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐                │    │
+│  │  │ BUILTIN │ │   MCP   │ │PLAYWRIGHT│ │ CUSTOM  │                │    │
+│  │  └─────────┘ └─────────┘ └─────────┘ └─────────┘                │    │
+│  └─────────────────────────────────────────────────────────────────┘    │
+└─────────────────────────────────────────────────────────────────────────┘
+                                  │
+┌─────────────────────────────────┴───────────────────────────────────────┐
+│                      Layer 3: Governance 治理层                           │
+│  ┌────────────┐ ┌────────────┐ ┌────────────┐ ┌────────────┐           │
+│  │  Metrics   │ │   Audit    │ │   Safety   │ │   Alerts   │           │
+│  │  Collector │ │   Logger   │ │   Guard    │ │  Manager   │           │
+│  └────────────┘ └────────────┘ └────────────┘ └────────────┘           │
+│    成功率监控      审计日志       安全隔离       告警管理                   │
+└─────────────────────────────────────────────────────────────────────────┘
+                                  │
+┌─────────────────────────────────┴───────────────────────────────────────┐
+│                      Layer 4: Capture 知识捕获层                          │
+│  ┌────────────┐ ┌────────────┐ ┌────────────┐ ┌────────────┐           │
+│  │  Recorder  │ │ Generator  │ │  Refiner   │ │ Repository │           │
+│  │  操作录制   │ │ Skill生成  │ │ 参数优化   │ │  知识库    │           │
+│  └────────────┘ └────────────┘ └────────────┘ └────────────┘           │
+└─────────────────────────────────────────────────────────────────────────┘
+                                  │
+┌─────────────────────────────────┴───────────────────────────────────────┐
+│                      Layer 5: Storage 存储层                              │
+│  ┌────────────────────────┐ ┌────────────────────────┐                  │
+│  │    SQLite/PostgreSQL   │ │     Vector Store       │                  │
+│  │  执行记录  会话  审计   │ │  Embeddings  RAG搜索   │                  │
+│  └────────────────────────┘ └────────────────────────┘                  │
+└─────────────────────────────────────────────────────────────────────────┘
+                                  │
+┌─────────────────────────────────┴───────────────────────────────────────┐
+│                      Layer 6: 四层 Agent 架构 (原有)                       │
+│  ┌────────────┐ ┌────────────┐ ┌────────────┐ ┌────────────┐           │
+│  │   Master   │ │ Sub-Agent  │ │  Workflow  │ │   Skills   │           │
+│  │   Agent    │ │  Manager   │ │   Engine   │ │  Executor  │           │
+│  └────────────┘ └────────────┘ └────────────┘ └────────────┘           │
+└─────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
@@ -52,503 +119,736 @@ Skills Demo 是一个用于编写、调试和执行 Claude Skills 的 Web 演示
 
 ```
 skills_demo/
-├── app/                      # Python 后端
+├── app/                          # Python 后端
 │   ├── __init__.py
-│   ├── main.py              # FastAPI 应用入口和路由
-│   ├── models.py            # Pydantic 数据模型
-│   └── engine.py            # 核心业务逻辑引擎
-├── static/                   # 前端静态资源
-│   ├── app.js               # 前端应用逻辑
-│   └── style.css            # 自定义样式
-├── templates/                # Jinja2 模板
-│   └── index.html           # 主页面
-├── tests/                    # 测试代码
-│   ├── test_api.py          # 基础 API 测试
-│   └── test_full.py         # 完整集成测试
-├── docs/                     # 文档
-│   └── TECHNICAL.md         # 技术文档
-├── pyproject.toml           # 项目配置
-└── README.md                # 快速入门
+│   ├── main.py                   # FastAPI 应用入口和路由
+│   ├── models.py                 # Pydantic 数据模型
+│   ├── skills_engine.py          # 统一 Skills 执行引擎 (NEW)
+│   ├── tool_router.py            # 工具路由系统 (NEW)
+│   │
+│   ├── providers/                # LLM Provider 抽象层 (NEW)
+│   │   ├── __init__.py
+│   │   ├── base.py               # 基础抽象类
+│   │   ├── factory.py            # Provider 工厂
+│   │   ├── claude_provider.py    # Claude 实现
+│   │   ├── openai_provider.py    # OpenAI 实现
+│   │   ├── gemini_provider.py    # Google Gemini 实现
+│   │   └── ollama_provider.py    # Ollama 本地模型实现
+│   │
+│   ├── storage/                  # 存储层 (NEW)
+│   │   ├── __init__.py
+│   │   ├── database.py           # 数据库连接管理
+│   │   ├── models.py             # ORM 模型
+│   │   └── repository.py         # 数据访问层
+│   │
+│   ├── governance/               # 治理系统 (NEW)
+│   │   ├── __init__.py
+│   │   ├── metrics.py            # 监控指标收集
+│   │   ├── audit.py              # 审计日志
+│   │   ├── safety.py             # 安全隔离
+│   │   └── alerts.py             # 告警管理
+│   │
+│   ├── capture/                  # 知识捕获 (NEW)
+│   │   ├── __init__.py
+│   │   ├── recorder.py           # Chrome 操作录制
+│   │   ├── generator.py          # SKILL.md 生成器
+│   │   ├── refiner.py            # 参数化/泛化工具
+│   │   ├── repository.py         # 知识库管理
+│   │   └── vector_store.py       # 向量存储 (RAG)
+│   │
+│   ├── layers.py                 # 四层 Agent 架构
+│   └── mcp.py                    # MCP 客户端
+│
+├── static/                       # 前端静态资源
+│   ├── app.js
+│   └── style.css
+│
+├── templates/                    # Jinja2 模板
+│   └── index.html
+│
+├── .claude/skills/               # Skills 存储
+│   ├── product-launch/
+│   │   └── SKILL.md
+│   └── menu-management/
+│       └── SKILL.md
+│
+├── data/                         # 数据存储
+│   ├── skills.db                 # SQLite 数据库
+│   └── vectors/                  # 向量索引
+│
+├── tests/                        # 测试代码
+├── docs/                         # 文档
+├── pyproject.toml                # 项目配置
+└── README.md
 ```
 
 ---
 
-## 数据模型
+## 核心模块详解
 
-### SkillStatus (枚举)
+### 1. LLM Provider 抽象层
 
-```python
-class SkillStatus(str, Enum):
-    PENDING = "pending"      # 待执行
-    RUNNING = "running"      # 执行中
-    SUCCESS = "success"      # 成功
-    ERROR = "error"          # 错误
-```
-
-### Skill (技能)
+提供统一的多 LLM 接口，支持动态切换。
 
 ```python
-class Skill(BaseModel):
-    id: str                  # UUID[:8] 唯一标识
-    name: str                # 技能名称
-    description: str         # 技能描述
-    prompt: str              # 技能提示词
-    created_at: datetime     # 创建时间
-    updated_at: datetime     # 更新时间
+# app/providers/base.py
+
+class BaseLLMProvider(ABC):
+    """LLM Provider 基类"""
+
+    @abstractmethod
+    def chat(
+        self,
+        messages: list[Message],
+        tools: Optional[list[ToolDefinition]] = None,
+        **kwargs
+    ) -> LLMResponse:
+        """同步对话"""
+        pass
+
+    @abstractmethod
+    def stream_chat(
+        self,
+        messages: list[Message],
+        tools: Optional[list[ToolDefinition]] = None,
+        **kwargs
+    ) -> Generator[str, None, LLMResponse]:
+        """流式对话"""
+        pass
 ```
 
-### ExecutionStep (执行步骤)
+**支持的 Provider:**
+
+| Provider | 模型 | 环境变量 |
+|----------|------|---------|
+| Claude | claude-sonnet-4-20250514 等 | ANTHROPIC_API_KEY |
+| OpenAI | gpt-4o, gpt-4o-mini 等 | OPENAI_API_KEY |
+| Gemini | gemini-2.0-flash 等 | GOOGLE_API_KEY |
+| Ollama | llama3.3, qwen2.5 等 | OLLAMA_HOST |
+
+**使用示例:**
 
 ```python
-class ExecutionStep(BaseModel):
-    step_id: int             # 步骤编号 (1-based)
-    action: str              # 操作名称
-    detail: str              # 执行详情
-    timestamp: datetime      # 时间戳
-    status: SkillStatus      # 步骤状态
-    result: Optional[Any]    # 执行结果
-    duration_ms: Optional[float]  # 耗时(毫秒)
+from app.providers import get_provider
+
+# 使用 Claude
+provider = get_provider("claude", model="claude-sonnet-4-20250514")
+
+# 切换到 OpenAI
+provider = get_provider("openai", model="gpt-4o")
+
+# 使用本地 Ollama
+provider = get_provider("ollama", model="llama3.3")
 ```
 
-### ExecutionResult (执行结果)
+### 2. Tool Router 工具路由
+
+统一管理和路由所有工具调用。
 
 ```python
-class ExecutionResult(BaseModel):
-    execution_id: str        # 执行 ID
-    skill_id: str            # 技能 ID
-    skill_name: str          # 技能名称
-    status: SkillStatus      # 执行状态
-    input_args: Optional[str]    # 输入参数
-    steps: list[ExecutionStep]   # 步骤列表
-    final_result: Optional[str]  # 最终结果
-    error: Optional[str]         # 错误信息
-    started_at: datetime         # 开始时间
-    completed_at: Optional[datetime]  # 完成时间
-    total_duration_ms: Optional[float]  # 总耗时
+# app/tool_router.py
+
+class ToolRouter:
+    """工具路由器"""
+
+    def register_tool(
+        self,
+        metadata: ToolMetadata,
+        handler: Callable
+    ):
+        """注册工具"""
+        pass
+
+    def get_tool_definitions(
+        self,
+        allowed_tools: List[str] = None,
+        access_levels: List[AccessLevel] = None
+    ) -> List[ToolDefinition]:
+        """获取可用工具定义"""
+        pass
+
+    def execute(self, tool_call: ToolCall) -> ToolResult:
+        """执行工具调用"""
+        pass
 ```
+
+**工具类别:**
+
+| 类别 | 说明 | 示例 |
+|------|------|------|
+| BUILTIN | 内置工具 | Read, Write, Glob |
+| MCP | MCP 协议工具 | mcp__database__query |
+| PLAYWRIGHT | 浏览器自动化 | mcp__playwright__browser_* |
+| CUSTOM | 自定义工具 | 业务特定工具 |
+
+**访问级别:**
+
+| 级别 | 说明 |
+|------|------|
+| READ | 只读操作 |
+| WRITE | 写入操作 |
+| EXECUTE | 执行操作 |
+| ADMIN | 管理操作 |
+
+### 3. Governance 治理系统
+
+提供完整的监控、审计、安全能力。
+
+#### 3.1 Metrics 监控指标
+
+```python
+# app/governance/metrics.py
+
+class MetricsCollector:
+    """监控指标收集器"""
+
+    def record(
+        self,
+        execution_id: str,
+        scope: MetricScope,      # SKILL / TOOL / GLOBAL
+        target_id: str,
+        success: bool,
+        duration_ms: float,
+        **metadata
+    ):
+        """记录指标"""
+        pass
+
+    def get_success_rate(
+        self,
+        scope: MetricScope,
+        target_id: str,
+        hours: int = 24
+    ) -> float:
+        """获取成功率"""
+        pass
+
+    def get_dashboard(self) -> MetricsDashboard:
+        """获取仪表盘数据"""
+        pass
+```
+
+#### 3.2 Audit 审计日志
+
+```python
+# app/governance/audit.py
+
+class AuditLogger:
+    """审计日志记录器"""
+
+    # 事件类型
+    EXECUTION_START = "execution_start"
+    EXECUTION_END = "execution_end"
+    TOOL_CALL = "tool_call"
+    APPROVAL_REQUESTED = "approval_requested"
+    APPROVAL_GRANTED = "approval_granted"
+    SKILL_CREATED = "skill_created"
+
+    def log_execution_start(self, execution_id, skill_id, user_id, parameters):
+        """记录执行开始"""
+        pass
+
+    def log_tool_call(self, execution_id, tool_name, arguments, success, result):
+        """记录工具调用"""
+        pass
+```
+
+#### 3.3 Safety 安全隔离
+
+```python
+# app/governance/safety.py
+
+class SafetyGuard:
+    """安全守卫"""
+
+    def classify_operation(
+        self,
+        tool_name: str,
+        params: Dict[str, Any]
+    ) -> OperationType:
+        """分类操作类型: READ / WRITE / EXECUTE / DANGEROUS"""
+        pass
+
+    def check_permission(
+        self,
+        context: SecurityContext,
+        tool_name: str,
+        params: Dict[str, Any]
+    ) -> SecurityCheckResult:
+        """检查权限"""
+        pass
+
+    def validate_bash_command(self, command: str) -> SecurityCheckResult:
+        """验证 Bash 命令安全性"""
+        pass
+```
+
+#### 3.4 Alerts 告警管理
+
+```python
+# app/governance/alerts.py
+
+class AlertManager:
+    """告警管理器"""
+
+    # 内置规则
+    RULES = {
+        "success_rate_low": AlertRule(
+            threshold=0.9,
+            severity=AlertSeverity.WARNING,
+            message="成功率低于 90%"
+        ),
+        "success_rate_critical": AlertRule(
+            threshold=0.7,
+            severity=AlertSeverity.CRITICAL,
+            message="成功率低于 70%"
+        ),
+    }
+
+    def check_and_trigger(self):
+        """检查并触发告警"""
+        pass
+
+    def acknowledge(self, alert_id: str, by: str) -> Alert:
+        """确认告警"""
+        pass
+
+    def resolve(self, alert_id: str) -> Alert:
+        """解决告警"""
+        pass
+```
+
+### 4. Capture 知识捕获
+
+实现从人工操作到自动化 Skill 的转化。
+
+#### 4.1 Recorder 操作录制
+
+```python
+# app/capture/recorder.py
+
+class ActionRecorder:
+    """操作录制器"""
+
+    def start_session(
+        self,
+        name: str = None,
+        start_url: str = None,
+        recorded_by: str = None
+    ) -> RecordingSession:
+        """开始录制会话"""
+        pass
+
+    def record_action(
+        self,
+        action_type: ActionType,    # CLICK, FILL, NAVIGATE, etc.
+        selector: ElementSelector,
+        value: str = None,
+        **options
+    ) -> RecordedAction:
+        """记录操作"""
+        pass
+
+    def end_session(self, session_id: str) -> RecordingSession:
+        """结束录制"""
+        pass
+```
+
+**操作类型:**
+
+| 类型 | 说明 |
+|------|------|
+| NAVIGATE | 页面导航 |
+| CLICK | 点击操作 |
+| FILL | 填充输入框 |
+| SELECT | 下拉选择 |
+| WAIT_FOR_ELEMENT | 等待元素 |
+| ASSERT_TEXT | 断言文本 |
+
+#### 4.2 Generator SKILL.md 生成
+
+```python
+# app/capture/generator.py
+
+class SkillGenerator:
+    """SKILL.md 生成器"""
+
+    def generate(
+        self,
+        recording: RecordingSession,
+        skill_name: str = None,
+        category: str = None
+    ) -> GeneratedSkill:
+        """从录制生成 Skill"""
+        pass
+
+    def _extract_parameters(self, actions) -> List[ExtractedParameter]:
+        """提取参数"""
+        pass
+
+    def _generate_steps(self, actions) -> List[GeneratedStep]:
+        """生成步骤"""
+        pass
+```
+
+#### 4.3 Refiner 参数化优化
+
+```python
+# app/capture/refiner.py
+
+class SkillRefiner:
+    """Skill 优化器"""
+
+    def refine(
+        self,
+        skill: GeneratedSkill,
+        options: RefineOptions = None
+    ) -> RefineResult:
+        """优化 Skill"""
+        pass
+
+    # 优化能力
+    # - 参数化：替换硬编码值为 ${param}
+    # - 泛化：使用更稳定的选择器
+    # - 增强：添加错误处理、重试逻辑
+    # - 文档：添加使用示例、FAQ
+```
+
+#### 4.4 Vector Store 向量存储
+
+```python
+# app/capture/vector_store.py
+
+class SkillVectorStore(VectorStore):
+    """Skill 向量存储"""
+
+    def add_skill(
+        self,
+        skill_id: str,
+        name: str,
+        description: str,
+        content: str,
+        category: str = None,
+        tags: List[str] = None
+    ) -> str:
+        """添加 Skill 到向量库"""
+        pass
+
+    def search_skills(
+        self,
+        query: str,
+        top_k: int = 5,
+        category: str = None
+    ) -> List[SearchMatch]:
+        """语义搜索 Skills"""
+        pass
+```
+
+**Embedding 后端:**
+
+| 后端 | 说明 | 环境变量 |
+|------|------|---------|
+| Voyage AI | 高质量 Embedding | VOYAGE_API_KEY |
+| OpenAI | text-embedding-3-small | OPENAI_API_KEY |
+| Local | 本地简单 Embedding | 无需配置 |
 
 ---
 
 ## API 接口
 
-### Skills CRUD
+### V2 API (新版统一接口)
 
-| 方法 | 端点 | 描述 | 请求体 | 响应 |
-|------|------|------|--------|------|
-| GET | `/api/skills` | 获取所有技能 | - | `{"skills": [Skill]}` |
-| GET | `/api/skills/{id}` | 获取单个技能 | - | `Skill` / 404 |
-| POST | `/api/skills` | 创建技能 | `SkillCreate` | `Skill` |
-| PUT | `/api/skills/{id}` | 更新技能 | `SkillUpdate` | `Skill` / 404 |
-| DELETE | `/api/skills/{id}` | 删除技能 | - | `{"message": "..."}` / 404 |
+#### Skills 执行
 
-### Execution
+| 方法 | 端点 | 描述 |
+|------|------|------|
+| POST | `/api/v2/skills/{id}/execute` | 执行 Skill |
+| GET | `/api/v2/skills` | 列出 Skills |
+| GET | `/api/v2/skills/search?q=xxx` | 语义搜索 Skills |
+| GET | `/api/v2/skills/{id}` | 获取 Skill 详情 |
+| GET | `/api/v2/skills/{id}/stats` | 获取 Skill 统计 |
 
-| 方法 | 端点 | 描述 | 请求体 | 响应 |
-|------|------|------|--------|------|
-| POST | `/api/execute` | 执行技能 | `ExecuteRequest` | `ExecutionResult` |
-| GET | `/api/executions` | 执行历史 | - | `{"executions": [...]}` |
-| GET | `/api/executions/{id}` | 单个执行记录 | - | `ExecutionResult` / 404 |
+#### Provider 管理
 
-### 请求/响应示例
+| 方法 | 端点 | 描述 |
+|------|------|------|
+| GET | `/api/v2/provider` | 获取当前 Provider |
+| POST | `/api/v2/provider` | 切换 Provider |
 
-**创建技能:**
-```bash
-curl -X POST http://localhost:8000/api/skills \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "hello",
-    "description": "Say hello",
-    "prompt": "Greet the user.\n\nSteps:\n1. Parse input\n2. Generate greeting"
-  }'
+### Governance API (治理监控)
+
+| 方法 | 端点 | 描述 |
+|------|------|------|
+| GET | `/api/governance/metrics` | 获取监控指标 |
+| GET | `/api/governance/metrics/dashboard` | 获取仪表盘 |
+| GET | `/api/governance/alerts` | 获取告警列表 |
+| POST | `/api/governance/alerts/{id}/acknowledge` | 确认告警 |
+| POST | `/api/governance/alerts/{id}/resolve` | 解决告警 |
+| GET | `/api/governance/audit` | 获取审计日志 |
+
+### Capture API (录制生成)
+
+| 方法 | 端点 | 描述 |
+|------|------|------|
+| POST | `/api/capture/recording/start` | 开始录制 |
+| POST | `/api/capture/recording/{id}/action` | 记录操作 |
+| POST | `/api/capture/recording/{id}/stop` | 停止录制 |
+| GET | `/api/capture/recording/{id}` | 获取录制详情 |
+| GET | `/api/capture/recordings` | 列出所有录制 |
+| POST | `/api/capture/generate` | 从录制生成 Skill |
+| POST | `/api/capture/refine` | 优化 Skill |
+
+### V1 API (原有四层架构)
+
+保持兼容，详见原文档。
+
+---
+
+## 执行流程
+
+### Skill 执行完整流程
+
+```
+用户请求: POST /api/v2/skills/product-launch/execute
+    │
+    ├─ 1. 加载 Skill
+    │      └─ KnowledgeRepository.get_skill("product-launch")
+    │
+    ├─ 2. 创建执行上下文
+    │      └─ SkillExecutionContext(skill_id, parameters, access_levels)
+    │
+    ├─ 3. 审计日志
+    │      └─ AuditLogger.log_execution_start()
+    │
+    ├─ 4. 安全检查
+    │      └─ SafetyGuard.check_permission()
+    │
+    ├─ 5. 获取可用工具
+    │      └─ ToolRouter.get_tool_definitions(allowed_tools)
+    │
+    ├─ 6. LLM 执行循环
+    │      ├─ LLMProvider.chat(messages, tools)
+    │      ├─ 处理工具调用
+    │      │    ├─ SafetyGuard.check_permission()
+    │      │    ├─ ToolRouter.execute(tool_call)
+    │      │    └─ AuditLogger.log_tool_call()
+    │      └─ 重复直到完成或达到 max_turns
+    │
+    ├─ 7. 记录指标
+    │      └─ MetricsCollector.record(success, duration_ms)
+    │
+    ├─ 8. 更新统计
+    │      └─ KnowledgeRepository.update_stats()
+    │
+    ├─ 9. 检查告警
+    │      └─ AlertManager.check_and_trigger()
+    │
+    └─ 10. 审计日志
+           └─ AuditLogger.log_execution_end()
 ```
 
-**执行技能:**
-```bash
-curl -X POST http://localhost:8000/api/execute \
-  -H "Content-Type: application/json" \
-  -d '{
-    "skill_id": "abc12345",
-    "args": "World"
-  }'
+### 知识捕获流程
+
+```
+┌────────────────────────────────────────────────────────────────────────┐
+│  Step 1: 操作录制                                                       │
+│  POST /api/capture/recording/start                                     │
+│       ↓                                                                │
+│  用户在浏览器中操作，前端调用 /action 记录每个操作                         │
+│       ↓                                                                │
+│  POST /api/capture/recording/{id}/stop                                 │
+└────────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    ↓
+┌────────────────────────────────────────────────────────────────────────┐
+│  Step 2: Skill 生成                                                     │
+│  POST /api/capture/generate                                            │
+│       ↓                                                                │
+│  SkillGenerator 分析操作序列:                                            │
+│  • 提取可变参数 (价格、日期、名称等)                                       │
+│  • 生成步骤说明                                                          │
+│  • 推断前置条件                                                          │
+│  • 生成 SKILL.md 内容                                                   │
+└────────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    ↓
+┌────────────────────────────────────────────────────────────────────────┐
+│  Step 3: 优化精炼                                                        │
+│  POST /api/capture/refine                                              │
+│       ↓                                                                │
+│  SkillRefiner 优化:                                                     │
+│  • 参数化硬编码值                                                        │
+│  • 泛化不稳定选择器                                                       │
+│  • 添加错误处理                                                          │
+│  • 补充文档示例                                                          │
+└────────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    ↓
+┌────────────────────────────────────────────────────────────────────────┐
+│  Step 4: 存储索引                                                        │
+│  KnowledgeRepository.save_skill()                                      │
+│  SkillVectorStore.add_skill()                                          │
+│       ↓                                                                │
+│  Skill 可通过语义搜索发现和执行                                            │
+└────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 核心引擎
+## 配置说明
 
-### SkillsEngine 类
-
-```python
-class SkillsEngine:
-    skills: dict[str, Skill]              # 技能存储
-    executions: dict[str, ExecutionResult] # 执行历史
-```
-
-### 主要方法
-
-| 方法 | 功能 |
-|------|------|
-| `create_skill(data)` | 创建新技能，生成 UUID |
-| `get_skill(id)` | 按 ID 获取技能 |
-| `get_all_skills()` | 获取所有技能列表 |
-| `update_skill(id, data)` | 部分更新技能 |
-| `delete_skill(id)` | 删除技能 |
-| `execute_skill(id, args)` | 执行技能，返回详细结果 |
-
-### 执行流程
-
-```
-execute_skill(skill_id, args)
-    │
-    ├─ 1. 验证技能存在
-    │
-    ├─ 2. 创建 ExecutionResult (status=RUNNING)
-    │
-    ├─ 3. _parse_steps_from_prompt(prompt)
-    │      └─ 正则提取 "1. xxx" 格式的步骤
-    │
-    ├─ 4. 遍历执行每个步骤
-    │      ├─ 创建 ExecutionStep
-    │      ├─ sleep(0.1s) 模拟执行
-    │      ├─ _execute_step() 获取结果
-    │      └─ 记录耗时
-    │
-    ├─ 5. _generate_final_result() 生成最终输出
-    │
-    └─ 6. 更新状态，记录到 executions
-```
-
-### 步骤解析规则
-
-从 prompt 中提取编号步骤：
-
-```
-输入 prompt:
-"""
-Perform a calculation.
-
-Steps:
-1. Parse the expression
-2. Validate safety
-3. Calculate result
-"""
-
-输出 steps:
-["Parse the expression", "Validate safety", "Calculate result"]
-```
-
----
-
-## 前端架构
-
-### SkillsApp 类
-
-```javascript
-class SkillsApp {
-    currentSkillId    // 当前选中技能 ID
-    skills            // 技能列表
-
-    // DOM 引用
-    skillsList, skillForm, skillName, skillDesc,
-    skillPrompt, executeArgs, executionResults
-}
-```
-
-### 核心方法
-
-| 方法 | 功能 |
-|------|------|
-| `loadSkills()` | 从 API 加载技能列表 |
-| `renderSkillsList()` | 渲染左侧技能列表 |
-| `selectSkill(id)` | 选中技能，填充表单 |
-| `newSkill()` | 清空表单，准备新建 |
-| `saveSkill()` | 保存技能 (POST/PUT) |
-| `deleteSkill()` | 删除当前技能 |
-| `executeSkill()` | 执行技能，显示结果 |
-| `renderExecutionResult(result)` | 渲染执行结果卡片 |
-| `clearResults()` | 清空结果面板 |
-
-### UI 交互流程
-
-```
-用户选择技能 → selectSkill() → 填充编辑表单
-     │
-用户修改内容 → saveSkill() → API 调用 → 刷新列表
-     │
-用户点击 Run → executeSkill() → 显示 Loading
-     │                              │
-     └──────────────────────────────┴→ renderExecutionResult()
-                                          └→ 显示步骤和结果
-```
-
----
-
-## 深色模式
-
-### 实现方式
-
-```javascript
-// 检测系统偏好
-if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
-    document.documentElement.classList.add('dark');
-}
-
-// 监听系统变化
-window.matchMedia('(prefers-color-scheme: dark)')
-    .addEventListener('change', e => {
-        document.documentElement.classList.toggle('dark', e.matches);
-    });
-```
-
-### Tailwind 配置
-
-```javascript
-tailwind.config = {
-    darkMode: 'class',
-    theme: {
-        extend: {
-            colors: {
-                dark: {
-                    bg: '#0d1117',
-                    card: '#161b22',
-                    border: '#30363d',
-                    hover: '#21262d'
-                }
-            }
-        }
-    }
-}
-```
-
----
-
-## 预置技能
-
-### greet - 问候生成
-
-```
-输入: 用户名 (可选)
-输出: "Hello, {name}! Welcome to the Skills Demo. Have a great day!"
-
-步骤:
-1. Parse the input arguments
-2. Generate personalized greeting
-3. Return the formatted message
-```
-
-### calculate - 数学计算
-
-```
-输入: 数学表达式 (如 "2 + 3 * 4")
-输出: "Result: 2 + 3 * 4 = 14"
-
-步骤:
-1. Parse the math expression
-2. Validate the expression is safe
-3. Calculate the result
-4. Return formatted result
-
-安全过滤: 只允许 0-9 + - * / ( ) . 和空格
-```
-
-### summarize - 文本总结
-
-```
-输入: 待总结文本
-输出: 文本摘要
-
-步骤:
-1. Receive input text
-2. Analyze content structure
-3. Extract key points
-4. Generate concise summary
-```
-
----
-
-## 测试覆盖
-
-### 测试统计
-
-| 测试文件 | 测试数 | 覆盖范围 |
-|---------|--------|---------|
-| test_api.py | 9 | 基础 API 功能 |
-| test_full.py | 24 | 完整集成测试 |
-| **总计** | **33** | - |
-
-### 测试分类
-
-```
-TestHomepage (3)
-├── test_homepage_loads
-├── test_static_css
-└── test_static_js
-
-TestSkillsCRUD (8)
-├── test_list_skills_has_demos
-├── test_get_skill_by_id
-├── test_get_nonexistent_skill (404)
-├── test_create_skill_full
-├── test_update_skill_partial
-├── test_update_nonexistent_skill (404)
-├── test_delete_skill_success
-└── test_delete_nonexistent_skill (404)
-
-TestSkillExecution (8)
-├── test_execute_greet_skill
-├── test_execute_greet_without_args
-├── test_execute_calculate_skill
-├── test_execute_calculate_complex
-├── test_execute_summarize_skill
-├── test_execute_nonexistent_skill
-└── test_execute_custom_skill
-
-TestExecutionHistory (3)
-├── test_list_executions
-├── test_get_execution_by_id
-└── test_get_nonexistent_execution (404)
-
-TestEdgeCases (3)
-├── test_skill_with_no_steps_in_prompt
-├── test_skill_with_empty_args
-└── test_calculate_with_invalid_expression
-```
-
-### 运行测试
+### 环境变量
 
 ```bash
-# 运行所有测试
-uv run pytest tests/ -v
+# LLM Providers
+ANTHROPIC_API_KEY=sk-ant-xxx       # Claude API Key
+OPENAI_API_KEY=sk-xxx              # OpenAI API Key
+GOOGLE_API_KEY=xxx                 # Google Gemini API Key
+OLLAMA_HOST=http://localhost:11434 # Ollama 服务地址
 
-# 运行特定测试文件
-uv run pytest tests/test_full.py -v
+# 默认 Provider
+LLM_PROVIDER=claude                # claude / openai / gemini / ollama
+LLM_MODEL=claude-sonnet-4-20250514 # 默认模型
 
-# 运行特定测试类
-uv run pytest tests/test_full.py::TestSkillExecution -v
+# 数据库
+DATABASE_URL=sqlite:///data/skills.db  # 或 PostgreSQL 连接串
+
+# Embeddings
+VOYAGE_API_KEY=xxx                 # Voyage AI (优先)
+# 如果没有 Voyage，会使用 OpenAI 或本地 Embedding
 ```
+
+### pyproject.toml 依赖
+
+```toml
+dependencies = [
+    # Web Framework
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.32.0",
+    "jinja2>=3.1.0",
+    "python-multipart>=0.0.9",
+    "pydantic>=2.0.0",
+    "pyyaml>=6.0.0",
+    "python-dotenv>=1.0.0",
+
+    # LLM Providers
+    "anthropic>=0.40.0",
+    "openai>=1.0.0",
+    "google-generativeai>=0.8.0",
+    "ollama>=0.3.0",
+
+    # Storage
+    "sqlalchemy>=2.0.0",
+    "aiosqlite>=0.19.0",
+
+    # Embeddings
+    "numpy>=1.24.0",
+    "voyageai>=0.3.0",
+]
+```
+
+---
+
+## 监控指标
+
+### 核心指标
+
+| 指标 | 说明 | 目标值 |
+|------|------|--------|
+| global_success_rate | 全局成功率 | > 90% |
+| skill_success_rate | 单 Skill 成功率 | > 85% |
+| avg_duration_ms | 平均执行时间 | < 30000ms |
+| tool_call_count | 工具调用次数 | - |
+
+### 告警规则
+
+| 规则 | 阈值 | 级别 |
+|------|------|------|
+| success_rate_low | < 90% | WARNING |
+| success_rate_critical | < 70% | CRITICAL |
+| high_latency | > 2x 预期时间 | WARNING |
 
 ---
 
 ## 开发指南
 
-### 环境搭建
+### 添加新 LLM Provider
 
-```bash
-# 克隆项目
-cd skills_demo
-
-# 安装依赖
-uv sync
-
-# 启动开发服务器 (热重载)
-uv run uvicorn app.main:app --reload --port 8000
-```
-
-### 添加新技能类型
-
-1. **在 engine.py 中添加处理逻辑:**
+1. 继承 `BaseLLMProvider`:
 
 ```python
-def _execute_step(self, skill_name, step_idx, step_desc, args):
-    # ... 现有代码 ...
-    elif skill_name == "new_skill":
-        if step_idx == 0:
-            return "Step 1 result"
-        # ...
-    return f"Step {step_idx + 1} completed"
+# app/providers/new_provider.py
 
-def _generate_final_result(self, skill_name, args):
-    # ... 现有代码 ...
-    elif skill_name == "new_skill":
-        return f"New skill result for: {args}"
-    return "Skill executed successfully"
+class NewProvider(BaseLLMProvider):
+    def __init__(self, model: str = None, **kwargs):
+        self.model = model or "default-model"
+        self._client = NewClient()
+
+    def chat(self, messages, tools=None, **kwargs):
+        # 实现对话逻辑
+        pass
+
+    def stream_chat(self, messages, tools=None, **kwargs):
+        # 实现流式对话
+        pass
+
+    def convert_tools(self, tools):
+        # 转换工具格式
+        pass
 ```
 
-2. **在 _init_demo_skills 中注册:**
+2. 注册到工厂:
 
 ```python
-def _init_demo_skills(self):
-    demo_skills = [
-        # ... 现有技能 ...
-        SkillCreate(
-            name="new_skill",
-            description="Description here",
-            prompt="""Prompt here.
+# app/providers/factory.py
 
-Steps:
-1. First step
-2. Second step"""
-        ),
-    ]
+PROVIDER_CLASSES["new"] = "app.providers.new_provider:NewProvider"
 ```
 
-### 扩展存储
-
-当前使用内存存储，可扩展为持久化：
+### 添加新工具
 
 ```python
-# 替换 engine.py 中的存储
-class SkillsEngine:
-    def __init__(self, db_session):
-        self.db = db_session
+from app.tool_router import get_router, ToolMetadata, ToolCategory, AccessLevel
 
-    def create_skill(self, skill_data):
-        skill = SkillModel(**skill_data.dict())
-        self.db.add(skill)
-        self.db.commit()
-        return skill
+router = get_router()
+
+# 定义工具元数据
+metadata = ToolMetadata(
+    name="my_custom_tool",
+    description="自定义工具描述",
+    category=ToolCategory.CUSTOM,
+    access_level=AccessLevel.WRITE,
+    parameters={
+        "param1": {"type": "string", "required": True},
+    }
+)
+
+# 定义处理函数
+def handle_my_tool(params):
+    return {"result": "success"}
+
+# 注册工具
+router.register_tool(metadata, handle_my_tool)
 ```
 
----
+### 添加新告警规则
 
-## 部署
+```python
+from app.governance.alerts import get_alert_manager, AlertRule, AlertSeverity
 
-### 生产环境
+alert_manager = get_alert_manager()
 
-```bash
-# 使用 gunicorn + uvicorn workers
-pip install gunicorn
-
-gunicorn app.main:app \
-    -w 4 \
-    -k uvicorn.workers.UvicornWorker \
-    -b 0.0.0.0:8000
+# 添加自定义规则
+alert_manager.add_rule(
+    "custom_rule",
+    AlertRule(
+        condition=lambda m: m.get("custom_metric") > 100,
+        severity=AlertSeverity.WARNING,
+        message="自定义指标超过阈值",
+        cooldown_minutes=30,
+    )
+)
 ```
-
-### Docker
-
-```dockerfile
-FROM python:3.11-slim
-
-WORKDIR /app
-COPY . .
-
-RUN pip install uv && uv sync
-
-EXPOSE 8000
-CMD ["uv", "run", "uvicorn", "app.main:app", "--host", "0.0.0.0"]
-```
-
----
-
-## 依赖清单
-
-### 运行时依赖
-
-| 包 | 版本 | 用途 |
-|----|------|------|
-| fastapi | >= 0.115.0 | Web 框架 |
-| uvicorn[standard] | >= 0.32.0 | ASGI 服务器 |
-| jinja2 | >= 3.1.0 | 模板引擎 |
-| python-multipart | >= 0.0.9 | 表单处理 |
-| pydantic | >= 2.0.0 | 数据验证 |
-
-### 开发依赖
-
-| 包 | 版本 | 用途 |
-|----|------|------|
-| pytest | >= 8.0.0 | 测试框架 |
-| httpx | >= 0.27.0 | HTTP 测试客户端 |
 
 ---
 
@@ -556,4 +856,10 @@ CMD ["uv", "run", "uvicorn", "app.main:app", "--host", "0.0.0.0"]
 
 | 版本 | 日期 | 变更 |
 |------|------|------|
-| 0.1.0 | 2025-12-28 | 初始版本，基础功能完成 |
+| 2.1.0 | 2025-01 | P0-P3 完整实施：LLM Provider、Tool Router、Governance、Capture、Vector Store |
+| 2.0.0 | 2024-12 | 四层 Agent 架构 |
+| 0.1.0 | 2024-12 | 初始版本 |
+
+---
+
+*文档持续更新中。如有问题请联系开发团队。*

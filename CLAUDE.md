@@ -26,40 +26,73 @@ uv run pytest tests/test_full.py::TestSkillExecution::test_execute_greet_skill -
 
 ## Architecture
 
-This is a Skills editing and execution demo built with FastAPI + Tailwind CSS.
+Enterprise AI operations automation platform ("Operations as Code") built with FastAPI.
 
-### Backend (app/)
-
-- **main.py** - FastAPI app with REST API routes for skills CRUD and execution
-- **models.py** - Pydantic models: `Skill`, `SkillCreate`, `SkillUpdate`, `ExecutionStep`, `ExecutionResult`, `ExecuteRequest`
-- **engine.py** - `SkillsEngine` class handles all business logic:
-  - In-memory storage (`self.skills`, `self.executions` dicts)
-  - Step parsing from prompts (regex for "1. step" format)
-  - Skill execution with step-by-step results and timing
-  - Three demo skills initialized on startup: greet, calculate, summarize
-
-### Frontend
-
-- **templates/index.html** - Jinja2 template with Tailwind CSS (CDN), 3-panel layout
-- **static/app.js** - `SkillsApp` class handles UI interactions, API calls, result rendering
-- Dark mode auto-detects system preference via `prefers-color-scheme`
-
-### Data Flow
+### Core Execution Pipeline
 
 ```
-Frontend (app.js) → POST /api/execute → SkillsEngine.execute_skill()
-                                              ↓
-                                    Parse steps from prompt
-                                              ↓
-                                    Execute each step (with 0.1s delay)
-                                              ↓
-                                    Generate final result
-                                              ↓
-                                    Return ExecutionResult with steps
+User Request → UnifiedSkillsEngine → LLM Provider → Tool Router → Result
+                      │                    │              │
+                      ├── Governance ──────┤              │
+                      │   (metrics, audit, safety)        │
+                      │                                   │
+                      └── Capture ────────────────────────┘
+                          (recording → SKILL.md generation)
 ```
 
-### Adding New Skill Types
+### Key Modules
 
-1. Add step handling in `engine.py:_execute_step()` for skill-specific logic
-2. Add result generation in `engine.py:_generate_final_result()`
-3. Optionally register as demo skill in `engine.py:_init_demo_skills()`
+**`app/skills_engine.py`** - Unified execution engine that orchestrates all components:
+- `UnifiedSkillsEngine.execute()` - Main entry point for Skill execution
+- Integrates LLM providers, tool routing, governance, and knowledge repository
+- Manages execution context with security levels and audit logging
+
+**`app/providers/`** - Multi-LLM abstraction layer:
+- `base.py` - `BaseLLMProvider` ABC with `Message`, `ToolDefinition`, `ToolCall`, `LLMResponse` dataclasses
+- `claude_provider.py`, `openai_provider.py`, `gemini_provider.py`, `ollama_provider.py` - Concrete implementations
+- `factory.py` - `get_provider(name)` factory function
+
+**`app/tool_router.py`** - Unified tool management:
+- `ToolRouter` manages builtin tools (bash, read, write, glob, grep), MCP tools, and custom tools
+- `ToolAccessLevel` enum: READ, WRITE, EXECUTE, ADMIN for permission control
+- `execute(ToolCall)` → `ToolResult` with safety checks
+
+**`app/governance/`** - Monitoring and safety:
+- `metrics.py` - `MetricsCollector` tracks success rates, durations, aggregates by scope
+- `audit.py` - `AuditLogger` records all executions and tool calls
+- `safety.py` - `SafetyGuard` with permission checks and dangerous pattern detection
+- `alerts.py` - `AlertManager` with rule-based triggering (success rate thresholds)
+
+**`app/capture/`** - Knowledge capture pipeline:
+- `recorder.py` - Records browser actions (click, input, navigate) during Chrome sessions
+- `generator.py` - Converts `RecordingSession` → `GeneratedSkill` (SKILL.md format)
+- `refiner.py` - Parameterizes values, optimizes selectors
+- `vector_store.py` - `SkillVectorStore` for semantic search with Voyage/OpenAI embeddings
+
+**`app/layers/`** - Four-layer agent architecture:
+- `master_agent.py` - Intent routing with keyword patterns and scenario templates
+- `sub_agents.py` - Domain-specific agents (product, pricing, marketing, etc.)
+- `workflow_engine.py` - DAG-based workflow execution
+- `skill_executor.py` - Step-by-step Skill execution
+
+### API Structure
+
+- `/api/v2/skills/*` - Unified Skills API (execute, list, search)
+- `/api/v2/provider` - LLM provider switching
+- `/api/governance/*` - Metrics, alerts, audit logs
+- `/api/capture/*` - Recording, SKILL.md generation
+
+### Adding New Components
+
+**New LLM Provider:**
+1. Create `app/providers/{name}_provider.py` extending `BaseLLMProvider`
+2. Implement `chat()`, `stream_chat()`, and tool format converters
+3. Register in `app/providers/__init__.py`
+
+**New Tool:**
+1. Add to `ToolRouter._register_builtin_tools()` or call `register_tool()`
+2. Provide `ToolMetadata` and handler function `(params) -> ToolResult`
+
+**New Alert Rule:**
+1. Add to `AlertManager._init_default_rules()` or call `add_rule()`
+2. Specify scope, condition function, severity, and action
